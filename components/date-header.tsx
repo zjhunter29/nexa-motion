@@ -23,7 +23,7 @@ export function DateHeader() {
         <p className="text-[11px] uppercase tracking-[0.22em] text-text-muted font-medium">
           {weekday}, {monthDay}
         </p>
-        <h1 className="mt-1 text-3xl font-semibold tracking-tight gradient-text">
+        <h1 className="mt-1 text-3xl font-semibold tracking-tight text-white">
           {short}
         </h1>
       </div>

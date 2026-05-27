@@ -1,24 +1,13 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Sparkles, Cloud, Sun, CloudRain, Wind } from "lucide-react";
+import { Sparkles } from "lucide-react";
 import { useNexaStore } from "@/lib/store";
-import { sampleWeather } from "@/lib/sample-data";
 import { getGreeting } from "@/lib/utils";
-
-const WEATHER_ICONS = {
-  clear: Sun,
-  cloudy: Cloud,
-  rain: CloudRain,
-  snow: Cloud,
-  wind: Wind,
-  fog: Cloud,
-} as const;
 
 export function HeroGreeting() {
   const name = useNexaStore((s) => s.profile.name);
   const greeting = getGreeting();
-  const WeatherIcon = WEATHER_ICONS[sampleWeather.condition];
 
   return (
     <motion.section
@@ -35,15 +24,6 @@ export function HeroGreeting() {
       </h3>
 
       <div className="mt-3 flex items-center gap-2 flex-wrap">
-        <motion.div
-          whileTap={{ scale: 0.97 }}
-          className="glass-pill rounded-full px-3 py-1.5 inline-flex items-center gap-1.5"
-        >
-          <WeatherIcon className="h-3.5 w-3.5 text-accent-blue-bright" />
-          <span className="text-xs font-medium text-text-secondary">
-            {sampleWeather.tempF}°F · feels {sampleWeather.feelsLikeF}°
-          </span>
-        </motion.div>
         <motion.div
           whileTap={{ scale: 0.97 }}
           className="glass-pill rounded-full px-3 py-1.5 inline-flex items-center gap-1.5"
