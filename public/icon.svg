@@ -1,39 +1,35 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
   <defs>
     <linearGradient id="ringGrad" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="#C084FC"/>
       <stop offset="0.5" stop-color="#7C3AED"/>
       <stop offset="1" stop-color="#9333EA"/>
     </linearGradient>
-    <radialGradient id="bgGrad" cx="50%" cy="40%" r="80%">
-      <stop offset="0" stop-color="#0A0A14"/>
-      <stop offset="1" stop-color="#000000"/>
-    </radialGradient>
   </defs>
 
-  <rect width="512" height="512" rx="96" fill="url(#bgGrad)"/>
+  <rect width="1024" height="1024" rx="200" fill="black"/>
 
-  <!-- Orbital ring — back half, behind the N -->
-  <g transform="translate(256 256) rotate(-22)">
-    <path d="M -210,0 A 210,72 0 0,1 210,0"
-          fill="none" stroke="url(#ringGrad)" stroke-width="16" stroke-linecap="round"
-          opacity="0.95"/>
+  <!-- Orbital ring — back half -->
+  <g transform="translate(512 512) rotate(-22)">
+    <path d="M -420,0 A 420,140 0 0,1 420,0"
+          fill="none" stroke="url(#ringGrad)" stroke-width="40"
+          stroke-linecap="round" opacity="0.95"/>
   </g>
 
-  <!-- Stylized N -->
-  <g fill="white">
-    <!-- Left bar with sharp top-left tip -->
-    <polygon points="118,72 218,170 218,420 168,464 168,156"/>
-    <!-- Diagonal stroke connecting the two bars -->
-    <polygon points="218,170 270,170 348,422 296,422"/>
-    <!-- Right bar with sharp bottom-right tip -->
-    <polygon points="294,92 344,92 344,360 414,460 294,420"/>
+  <!-- Italicized N: right leg + diagonal + left leg -->
+  <g fill="#FFFFFF">
+    <!-- Right leg with sharp top-right tip -->
+    <path d="M 760,80 L 850,180 L 720,740 L 590,740 L 700,180 Z"/>
+    <!-- Diagonal of the N (slanted parallelogram) -->
+    <path d="M 330,340 L 460,340 L 720,740 L 590,740 Z"/>
+    <!-- Left leg with sharp bottom-left tip -->
+    <path d="M 300,1000 L 370,900 L 460,340 L 330,340 L 200,900 Z"/>
   </g>
 
-  <!-- Orbital ring — front half, in front of the N -->
-  <g transform="translate(256 256) rotate(-22)">
-    <path d="M 210,0 A 210,72 0 0,1 -210,0"
-          fill="none" stroke="url(#ringGrad)" stroke-width="16" stroke-linecap="round"
-          opacity="0.95"/>
+  <!-- Orbital ring — front half -->
+  <g transform="translate(512 512) rotate(-22)">
+    <path d="M 420,0 A 420,140 0 0,1 -420,0"
+          fill="none" stroke="url(#ringGrad)" stroke-width="40"
+          stroke-linecap="round" opacity="0.95"/>
   </g>
 </svg>
