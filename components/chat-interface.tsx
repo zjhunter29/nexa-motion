@@ -111,9 +111,11 @@ export function ChatInterface() {
   const showWelcome = messages.length === 0;
 
   return (
-    <div className="flex flex-col h-[calc(100vh-7rem)] safe-top">
-      {/* Header */}
-      <div className="flex items-center justify-between px-5 pb-3">
+    // Full-viewport flex column. `h-dvh` shrinks with the iOS keyboard
+    // (Tailwind 3.4+). Falls back to `h-screen` on older browsers.
+    <div className="flex flex-col h-screen h-dvh safe-top">
+      {/* Header — fixed at top of column */}
+      <header className="flex items-center justify-between px-5 pb-3 shrink-0">
         <div>
           <p className="text-[11px] uppercase tracking-[0.22em] text-text-muted font-medium">
             Powered by AI
@@ -132,12 +134,14 @@ export function ChatInterface() {
             <RotateCcw className="h-4 w-4" />
           </motion.button>
         )}
-      </div>
+      </header>
 
-      {/* Messages */}
+      {/* Messages — fills remaining space, scrolls.
+          `min-h-0` is required so the flex child can shrink instead of
+          pushing the input off-screen. */}
       <div
         ref={scrollerRef}
-        className="flex-1 overflow-y-auto px-5 space-y-3 no-scrollbar pb-2"
+        className="flex-1 min-h-0 overflow-y-auto px-5 space-y-3 no-scrollbar pb-2"
       >
         {showWelcome ? (
           <WelcomeState onPick={sendMessage} />
@@ -153,11 +157,16 @@ export function ChatInterface() {
         )}
       </div>
 
-      {/* Input */}
+      {/* Input — docked at the bottom of the flex column, sitting just above
+          the floating bottom nav. Padding-bottom clears the nav (~64px pill +
+          16px page padding) plus the iOS home indicator safe area. */}
       <form
         onSubmit={handleSubmit}
-        className="px-4 pt-3"
-        style={{ paddingBottom: "max(7rem, env(safe-area-inset-bottom))" }}
+        className="shrink-0 px-4 pt-3"
+        style={{
+          paddingBottom:
+            "calc(5rem + env(safe-area-inset-bottom, 0px))",
+        }}
       >
         <div className="glass-panel-strong rounded-3xl p-2 flex items-end gap-2">
           <button
@@ -174,7 +183,7 @@ export function ChatInterface() {
             onKeyDown={handleKey}
             placeholder="Ask anything about running..."
             rows={1}
-            className="flex-1 bg-transparent resize-none outline-none text-[15px] text-white placeholder-text-muted px-1 py-2.5 max-h-32"
+            className="flex-1 min-w-0 bg-transparent resize-none outline-none text-[15px] text-white placeholder-text-muted px-1 py-2.5 max-h-32"
           />
           <motion.button
             whileTap={{ scale: 0.92 }}

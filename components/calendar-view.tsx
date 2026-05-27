@@ -313,7 +313,7 @@ function DayDetail({ workout }: { workout: Workout }) {
       </div>
 
       <div className="grid grid-cols-3 gap-2 mb-3">
-        <Stat label="Status" value={workout.status} />
+        <Stat label="Status" value={workout.status} capitalizeValue />
         <Stat
           label="Distance"
           value={
@@ -347,13 +347,29 @@ function DayDetail({ workout }: { workout: Workout }) {
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+function Stat({
+  label,
+  value,
+  capitalizeValue,
+}: {
+  label: string;
+  value: string;
+  capitalizeValue?: boolean;
+}) {
   return (
-    <div className="stat-tile p-2.5">
-      <div className="text-[10px] uppercase tracking-wider text-text-muted font-medium">
+    <div className="stat-tile min-w-0 px-2 py-2.5 flex flex-col items-center justify-center text-center">
+      <div className="w-full text-[9px] sm:text-[10px] uppercase tracking-wider text-text-muted font-medium truncate">
         {label}
       </div>
-      <div className="mt-0.5 text-sm font-semibold text-white capitalize">
+      <div
+        className={cn(
+          "mt-1 w-full font-semibold text-white tabular-nums leading-tight truncate",
+          // Smaller, responsive font so long values fit at every viewport width.
+          "text-[12px] sm:text-[13px]",
+          capitalizeValue && "capitalize",
+        )}
+        title={value}
+      >
         {value}
       </div>
     </div>
