@@ -4,12 +4,38 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 import { Send, Sparkles, RotateCcw, Mic } from "lucide-react";
 import { useNexaStore } from "@/lib/store";
-import { SUGGESTED_PROMPTS } from "@/lib/ai-mock";
+import { SUGGESTED_PROMPTS, mockReply } from "@/lib/ai-mock";
 import type { ChatMessage } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 function makeId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+// Calls the server route at /api/chat (Anthropic → OpenAI → curated mock).
+// On any network or server failure we degrade gracefully to the client-side
+// mock so the chat stays usable.
+async function getAssistantReply(
+  history: { role: "user" | "assistant"; content: string }[],
+  prompt: string,
+): Promise<string> {
+  try {
+    const res = await fetch("/api/chat", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        messages: history.map((m) => ({ role: m.role, content: m.content })),
+      }),
+    });
+    if (!res.ok) throw new Error(`Coach API ${res.status}`);
+    const data = (await res.json()) as { reply?: string };
+    if (data.reply && data.reply.trim()) return data.reply;
+    throw new Error("Empty reply");
+  } catch (err) {
+    console.warn("[chat] falling back to local mock:", err);
+    await new Promise((r) => setTimeout(r, 280));
+    return mockReply(prompt);
+  }
 }
 
 export function ChatInterface() {
@@ -46,22 +72,14 @@ export function ChatInterface() {
     setBusy(true);
 
     try {
-      const res = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          messages: [...messages, userMsg].map((m) => ({
-            role: m.role,
-            content: m.content,
-          })),
-        }),
-      });
-      const data = await res.json();
+      const replyText = await getAssistantReply(
+        [...messages, userMsg],
+        trimmed,
+      );
       const reply: ChatMessage = {
         id: makeId(),
         role: "assistant",
-        content:
-          data.reply ?? "I'm having trouble thinking right now. Try again?",
+        content: replyText,
         createdAt: Date.now(),
       };
       pushMessage(reply);
@@ -70,7 +88,7 @@ export function ChatInterface() {
       pushMessage({
         id: makeId(),
         role: "assistant",
-        content: "Network hiccup — please try again.",
+        content: "Something went wrong — please try again.",
         createdAt: Date.now(),
       });
     } finally {

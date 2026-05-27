@@ -10,8 +10,9 @@ intelligent personalization — engineered to feel handcrafted.
 - **Framer Motion** for physics-based animation
 - **Zustand** with `localStorage` persistence
 - **Recharts** for analytics
-- **OpenAI** for the AI Coach (with a high-quality mock fallback)
+- **Real AI Coach** — `/api/chat` route auto-detects Anthropic / OpenAI keys; falls back to curated responses when neither is set.
 - **PWA-ready** with manifest + safe-area aware layouts
+- **Netlify / Vercel / Cloudflare ready** — API routes run as serverless functions.
 
 ## Quick start
 
@@ -22,18 +23,34 @@ npm run dev
 ```
 
 The app works out of the box — no environment variables required.
+Without an API key, the AI Coach uses high-quality curated responses.
 
-### Optional: enable real AI responses
+### Enable real LLM responses
 
-Copy the env file and add your OpenAI key:
+Copy the env file and set one (or both) API keys:
 
 ```bash
 cp .env.example .env.local
-# then edit .env.local and set OPENAI_API_KEY=sk-...
+# Edit .env.local:
+#   ANTHROPIC_API_KEY=sk-ant-...   (preferred — Claude Opus 4.7)
+#   OPENAI_API_KEY=sk-...           (fallback)
 ```
 
-Without a key, the AI Coach uses curated mock responses so you can demo,
-record, or develop offline.
+The `/api/chat` route auto-detects which provider to use, in this order:
+
+1. **Anthropic** — Claude Opus 4.7 with adaptive thinking + prompt caching
+2. **OpenAI** — `gpt-4o-mini` by default
+3. **Curated mock** — runner-specific canned replies (no key required)
+
+Each request returns `{ reply, source: "anthropic" | "openai" | "mock" }`
+plus token usage when applicable, so you can see what's actually answering.
+
+### On Netlify
+
+Set `ANTHROPIC_API_KEY` (and/or `OPENAI_API_KEY`) under
+**Site settings → Build & deploy → Environment → Environment variables**.
+The `/api/chat` route runs as a Netlify Function automatically via the
+[Next.js Runtime](https://docs.netlify.com/integrations/frameworks/next-js/overview/) — no config needed.
 
 ## Project structure
 
@@ -49,7 +66,7 @@ nexa-motion/
 │   ├── profile/              # Avatar, PRs, achievements
 │   ├── settings/             # Preferences, units, reset
 │   ├── onboarding/           # 6-step cinematic flow
-│   └── api/chat/             # OpenAI-or-mock chat endpoint
+│   └── api/chat/             # Anthropic / OpenAI / mock chat endpoint
 ├── components/
 │   ├── ambient-background.tsx
 │   ├── bottom-nav.tsx
@@ -102,9 +119,21 @@ The data layer is intentionally swap-friendly:
 
 ```bash
 npm run build
-npm start            # production server
-# or deploy with `vercel --prod` (zero-config)
+npm start            # production server on :3000
 ```
+
+**Netlify** — zero-config. Connect the repo; the Next.js Runtime
+detects the app and runs API routes as Netlify Functions. Set
+`ANTHROPIC_API_KEY` / `OPENAI_API_KEY` in the site env vars.
+
+**Vercel** — `vercel --prod`. API routes run on Edge/Node automatically.
+
+**Cloudflare Pages** — works via the Cloudflare Next.js adapter
+(Node-compatible runtime; API routes become Workers).
+
+**GitHub Pages / pure static hosts** — re-enable `output: "export"` in
+`next.config.mjs` and remove `app/api/`. The chat will run entirely
+client-side against the curated mock.
 
 ## Design system
 
