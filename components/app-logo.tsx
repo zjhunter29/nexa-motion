@@ -1,81 +1,52 @@
 "use client";
 
 import { motion } from "framer-motion";
+import Image from "next/image";
 import { cn } from "@/lib/utils";
 
 interface AppLogoProps {
   className?: string;
   size?: number;
-  showRing?: boolean;
-  /** Skip ambient halo + tap/hover animation for static contexts. */
+  /** Skip the tap/hover micro-animation for static contexts (loaders, splash). */
   static?: boolean;
+  /** Strip the rounded chrome and just render the logo art (useful for plain placements). */
+  bare?: boolean;
 }
 
+/**
+ * The official Nexa Motion logo. Renders the PNG asset at /public/nexa-logo.png
+ * directly via next/image so it stays pixel-perfect at every render size.
+ */
 export function AppLogo({
   className,
   size = 44,
-  showRing = true,
   static: isStatic = false,
+  bare = false,
 }: AppLogoProps) {
+  // Asset includes the black background + orbital ring, so we only need a thin
+  // border ring at most for inline placements. When `bare` is true we strip
+  // even that.
+  const wrapperClasses = bare
+    ? "relative inline-block"
+    : "relative inline-flex items-center justify-center rounded-2xl overflow-hidden border border-white/8 shadow-glass";
+
   const inner = (
-    <svg
-      viewBox="0 0 1024 1024"
-      width="100%"
-      height="100%"
-      className="relative z-10"
-      preserveAspectRatio="xMidYMid meet"
-      aria-label="Nexa Motion logo"
-    >
-      <defs>
-        <linearGradient id="nm-ring" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#C084FC" />
-          <stop offset="0.5" stopColor="#7C3AED" />
-          <stop offset="1" stopColor="#9333EA" />
-        </linearGradient>
-      </defs>
-
-      {/* Orbital ring — back half */}
-      <g transform="translate(512 512) rotate(-22)">
-        <path
-          d="M -420,0 A 420,140 0 0,1 420,0"
-          fill="none"
-          stroke="url(#nm-ring)"
-          strokeWidth="48"
-          strokeLinecap="round"
-          opacity="0.95"
-        />
-      </g>
-
-      {/* Italicized N: right leg + diagonal + left leg */}
-      <g fill="#FFFFFF">
-        <path d="M 760,80 L 850,180 L 720,740 L 590,740 L 700,180 Z" />
-        <path d="M 330,340 L 460,340 L 720,740 L 590,740 Z" />
-        <path d="M 300,1000 L 370,900 L 460,340 L 330,340 L 200,900 Z" />
-      </g>
-
-      {/* Orbital ring — front half */}
-      <g transform="translate(512 512) rotate(-22)">
-        <path
-          d="M 420,0 A 420,140 0 0,1 -420,0"
-          fill="none"
-          stroke="url(#nm-ring)"
-          strokeWidth="48"
-          strokeLinecap="round"
-          opacity="0.95"
-        />
-      </g>
-    </svg>
+    <Image
+      src="/nexa-logo.png"
+      alt="Nexa Motion"
+      width={size * 2}
+      height={size * 2}
+      priority
+      sizes={`${size}px`}
+      className="select-none pointer-events-none"
+      style={{ width: size, height: size, display: "block" }}
+    />
   );
 
   if (isStatic) {
     return (
       <div
-        className={cn(
-          "relative inline-flex items-center justify-center rounded-2xl overflow-hidden",
-          "bg-black",
-          "border border-white/10",
-          className,
-        )}
+        className={cn(wrapperClasses, className)}
         style={{ width: size, height: size }}
       >
         {inner}
@@ -87,23 +58,9 @@ export function AppLogo({
     <motion.div
       whileTap={{ scale: 0.92 }}
       whileHover={{ scale: 1.04 }}
-      className={cn(
-        "relative inline-flex items-center justify-center rounded-2xl overflow-hidden",
-        "bg-black",
-        "border border-white/10 backdrop-blur-xl",
-        "shadow-glass",
-        className,
-      )}
+      className={cn(wrapperClasses, className)}
       style={{ width: size, height: size }}
     >
-      {showRing && (
-        <motion.div
-          aria-hidden
-          className="absolute inset-0 bg-gradient-to-br from-accent-purple/15 to-accent-blue/5 blur-md"
-          animate={{ opacity: [0.4, 0.7, 0.4] }}
-          transition={{ duration: 4.2, repeat: Infinity, ease: "easeInOut" }}
-        />
-      )}
       {inner}
     </motion.div>
   );
