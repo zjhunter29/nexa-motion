@@ -1,13 +1,29 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronLeft, ChevronRight, Flame, Snowflake, Target, Zap, Mountain, Heart, Trophy, Moon } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Flame,
+  Snowflake,
+  Target,
+  Zap,
+  Mountain,
+  Heart,
+  Trophy,
+  Moon,
+  CalendarPlus,
+} from "lucide-react";
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { useNexaStore } from "@/lib/store";
 import type { Workout, WorkoutType } from "@/lib/types";
 import { cn, dateKey, formatDistance } from "@/lib/utils";
 
-const TYPE_META: Record<WorkoutType, { color: string; icon: typeof Flame; label: string }> = {
+const TYPE_META: Record<
+  WorkoutType,
+  { color: string; icon: typeof Flame; label: string }
+> = {
   easy: { color: "#60A5FA", icon: Heart, label: "Easy" },
   long: { color: "#A855F7", icon: Mountain, label: "Long" },
   tempo: { color: "#F59E0B", icon: Zap, label: "Tempo" },
@@ -20,6 +36,8 @@ const TYPE_META: Record<WorkoutType, { color: string; icon: typeof Flame; label:
 
 export function CalendarView() {
   const workouts = useNexaStore((s) => s.workouts);
+  const hasGeneratedPlan = useNexaStore((s) => s.profile.hasGeneratedPlan);
+
   const [cursor, setCursor] = useState(() => {
     const d = new Date();
     d.setDate(1);
@@ -44,16 +62,19 @@ export function CalendarView() {
 
   const completedThisMonth = days.filter(
     (d) =>
-      d.inMonth &&
-      workoutByDate.get(d.key)?.status === "completed",
+      d.inMonth && workoutByDate.get(d.key)?.status === "completed",
   ).length;
+
+  if (!hasGeneratedPlan || workouts.length === 0) {
+    return <CalendarEmptyState />;
+  }
 
   return (
     <div className="safe-top safe-bottom">
       <header className="flex items-center justify-between px-5 pb-4">
         <div>
           <p className="text-[11px] uppercase tracking-[0.22em] text-text-muted font-medium">
-            History & schedule
+            History &amp; schedule
           </p>
           <h1 className="mt-1 text-2xl font-semibold tracking-tight text-white">
             Calendar
@@ -67,7 +88,6 @@ export function CalendarView() {
         </div>
       </header>
 
-      {/* Month switcher */}
       <div className="mx-5 mb-4 glass-panel rounded-3xl p-4">
         <div className="flex items-center justify-between mb-3">
           <motion.button
@@ -163,7 +183,6 @@ export function CalendarView() {
         </div>
       </div>
 
-      {/* Day detail */}
       <AnimatePresence mode="wait">
         <motion.div
           key={selected}
@@ -181,10 +200,67 @@ export function CalendarView() {
         </motion.div>
       </AnimatePresence>
 
-      {/* Legend */}
       <div className="mx-5 mt-5 glass-panel rounded-3xl p-4">
         <p className="text-[11px] uppercase tracking-[0.18em] text-text-muted font-semibold mb-3">
           Activity types
+        </p>
+        <div className="grid grid-cols-2 gap-2">
+          {Object.entries(TYPE_META).map(([type, meta]) => (
+            <div key={type} className="flex items-center gap-2">
+              <span
+                className="h-2 w-2 rounded-full"
+                style={{ background: meta.color }}
+              />
+              <span className="text-[13px] text-text-secondary">
+                {meta.label}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CalendarEmptyState() {
+  return (
+    <div className="safe-top safe-bottom px-5">
+      <header className="pb-4">
+        <p className="text-[11px] uppercase tracking-[0.22em] text-text-muted font-medium">
+          History &amp; schedule
+        </p>
+        <h1 className="mt-1 text-2xl font-semibold tracking-tight text-white">
+          Calendar
+        </h1>
+      </header>
+
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6 }}
+        className="glass-panel rounded-3xl p-7 text-center"
+      >
+        <div className="inline-flex items-center justify-center h-14 w-14 rounded-2xl bg-gradient-to-br from-accent-purple/25 to-accent-blue/15 border border-white/10 mb-4 mx-auto">
+          <CalendarPlus className="h-6 w-6 text-accent-purple-bright" />
+        </div>
+        <h2 className="text-xl font-semibold text-white">
+          Your calendar is waiting
+        </h2>
+        <p className="mt-1.5 text-[13px] text-text-secondary leading-relaxed max-w-[280px] mx-auto">
+          Once you generate your first plan, scheduled and completed runs will
+          appear here color-coded by type.
+        </p>
+        <Link
+          href="/"
+          className="btn-primary mt-5 px-5 py-3 inline-flex items-center justify-center gap-2 font-semibold text-[14px]"
+        >
+          Create my first plan
+        </Link>
+      </motion.div>
+
+      <div className="mt-5 glass-panel rounded-3xl p-4">
+        <p className="text-[11px] uppercase tracking-[0.18em] text-text-muted font-semibold mb-3">
+          What you'll see here
         </p>
         <div className="grid grid-cols-2 gap-2">
           {Object.entries(TYPE_META).map(([type, meta]) => (
@@ -260,8 +336,10 @@ function DayDetail({ workout }: { workout: Workout }) {
         <div className="text-[13px] text-text-secondary leading-relaxed">
           <span className="font-semibold text-white">Main: </span>
           {workout.main.label}
-          {workout.main.distanceMiles && ` · ${formatDistance(workout.main.distanceMiles)}`}
-          {workout.main.reps && ` · ${workout.main.reps}×${workout.main.repDistanceMeters}m`}
+          {workout.main.distanceMiles &&
+            ` · ${formatDistance(workout.main.distanceMiles)}`}
+          {workout.main.reps &&
+            ` · ${workout.main.reps}×${workout.main.repDistanceMeters}m`}
           {workout.main.pace && ` @ ${workout.main.pace}/mi`}
         </div>
       )}
@@ -309,17 +387,14 @@ function buildMonthGrid(cursor: Date) {
 
   const days: { day: number; key: string; inMonth: boolean }[] = [];
 
-  // Pad start with prev month
   for (let i = startWeekday - 1; i >= 0; i--) {
     const d = new Date(year, month, -i);
     days.push({ day: d.getDate(), key: dateKey(d), inMonth: false });
   }
-  // Current month
   for (let i = 1; i <= daysInMonth; i++) {
     const d = new Date(year, month, i);
     days.push({ day: i, key: dateKey(d), inMonth: true });
   }
-  // Pad end with following month
   let trailingIndex = 1;
   while (days.length % 7 !== 0) {
     const d = new Date(year, month + 1, trailingIndex);

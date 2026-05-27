@@ -31,7 +31,7 @@ export function HeroGreeting() {
         {greeting},
       </h2>
       <h3 className="mt-0.5 text-[28px] font-semibold tracking-tight text-white">
-        {name}
+        {name || "Runner"}
       </h3>
 
       <div className="mt-3 flex items-center gap-2 flex-wrap">

@@ -2,7 +2,7 @@
 
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Play,
+  Check,
   Flame,
   Snowflake,
   Target,
@@ -12,7 +12,6 @@ import {
   Activity as ActivityIcon,
   CheckCircle2,
   CalendarX,
-  ChevronRight,
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { GlassCard } from "./glass-card";
@@ -271,9 +270,8 @@ export function WorkoutCard({ workout, variant = "primary" }: WorkoutCardProps) 
             }}
             className="btn-primary w-full mt-6 py-3.5 inline-flex items-center justify-center gap-2 font-semibold text-[14px]"
           >
-            <Play className="h-4 w-4 fill-current" />
-            Start Run
-            <ChevronRight className="h-4 w-4 opacity-70" />
+            <Check className="h-4 w-4" strokeWidth={3} />
+            Complete Activity
           </motion.button>
         )}
       </GlassCard>

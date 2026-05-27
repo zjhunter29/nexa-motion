@@ -35,6 +35,7 @@ export interface Workout {
   totalDuration?: number;
   motivation?: string;
   cancelReason?: CancelReason;
+  completedAt?: number; // unix ms — when "Complete Activity" was tapped
 }
 
 export type CancelReason = "sick" | "busy" | "injured" | "weather" | "other";
@@ -52,19 +53,35 @@ export interface CompletedRunStats {
   elevationGain: number;
 }
 
+export type FitnessLevel = "beginner" | "intermediate" | "advanced" | "elite";
+export type Experience = "0-1" | "1-3" | "3-5" | "5+";
+export type RunningGoal = "5k" | "10k" | "half" | "full" | "ultra" | "general";
+export type ActivityLevel = "sedentary" | "light" | "moderate" | "active" | "very_active";
+export type Units = "imperial" | "metric";
+
 export interface UserProfile {
   name: string;
   avatarColor: string;
-  age?: number;
+
+  // Required after onboarding
+  age?: number; // years
   weightLb?: number;
   heightIn?: number;
-  fitnessLevel: "beginner" | "intermediate" | "advanced" | "elite";
-  experience: "0-1" | "1-3" | "3-5" | "5+";
-  goal: "5k" | "10k" | "half" | "full" | "ultra" | "general";
+
+  fitnessLevel: FitnessLevel;
+  experience: Experience;
+  goal: RunningGoal;
+  activityLevel: ActivityLevel;
   trainingDays: number[]; // 0=Sun..6=Sat
+  targetDistanceMiles?: number; // optional explicit weekly target
   injuryHistory: string[];
-  preferredUnits: "imperial" | "metric";
+
+  preferredUnits: Units;
   onboarded: boolean;
+  /** True once the user has explicitly generated their first plan. */
+  hasGeneratedPlan: boolean;
+  /** Unix ms — when the most-recent plan was generated. */
+  planGeneratedAt?: number;
 }
 
 export interface Achievement {

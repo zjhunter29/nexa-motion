@@ -14,21 +14,34 @@ import {
   Trophy,
   Zap,
   Footprints,
+  X,
 } from "lucide-react";
 import { AppLogo } from "./app-logo";
 import { useNexaStore } from "@/lib/store";
-import type { UserProfile } from "@/lib/types";
+import type {
+  ActivityLevel,
+  Experience,
+  FitnessLevel,
+  RunningGoal,
+  UserProfile,
+} from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 interface DraftProfile {
   name: string;
-  fitnessLevel: UserProfile["fitnessLevel"];
-  experience: UserProfile["experience"];
-  goal: UserProfile["goal"];
+  age: number | null;
+  heightFt: number | null;
+  heightIn: number | null;
+  weightLb: number | null;
+  fitnessLevel: FitnessLevel;
+  experience: Experience;
+  goal: RunningGoal;
+  activityLevel: ActivityLevel;
   trainingDays: number[];
+  injuryHistory: string[];
 }
 
-const TOTAL_STEPS = 6;
+const TOTAL_STEPS = 9;
 
 export function OnboardingFlow() {
   const router = useRouter();
@@ -36,21 +49,36 @@ export function OnboardingFlow() {
   const [step, setStep] = useState(0);
   const [draft, setDraft] = useState<DraftProfile>({
     name: "",
-    fitnessLevel: "intermediate",
-    experience: "1-3",
-    goal: "5k",
+    age: null,
+    heightFt: null,
+    heightIn: null,
+    weightLb: null,
+    fitnessLevel: "beginner",
+    experience: "0-1",
+    goal: "general",
+    activityLevel: "moderate",
     trainingDays: [1, 3, 5],
+    injuryHistory: [],
   });
 
   function next() {
     if (step === TOTAL_STEPS - 1) {
-      completeOnboarding({
-        name: draft.name || "Runner",
+      const profilePatch: Partial<UserProfile> = {
+        name: draft.name.trim() || "Runner",
+        age: draft.age ?? undefined,
+        weightLb: draft.weightLb ?? undefined,
+        heightIn:
+          draft.heightFt != null && draft.heightIn != null
+            ? draft.heightFt * 12 + draft.heightIn
+            : draft.heightIn ?? undefined,
         fitnessLevel: draft.fitnessLevel,
         experience: draft.experience,
         goal: draft.goal,
+        activityLevel: draft.activityLevel,
         trainingDays: draft.trainingDays,
-      });
+        injuryHistory: draft.injuryHistory,
+      };
+      completeOnboarding(profilePatch);
       router.push("/");
     } else {
       setStep((s) => s + 1);
@@ -65,7 +93,22 @@ export function OnboardingFlow() {
     switch (step) {
       case 1:
         return draft.name.trim().length > 0;
-      case 5:
+      case 2:
+        return (
+          draft.age !== null &&
+          draft.age >= 13 &&
+          draft.age <= 100 &&
+          draft.heightFt !== null &&
+          draft.heightFt >= 3 &&
+          draft.heightFt <= 8 &&
+          draft.heightIn !== null &&
+          draft.heightIn >= 0 &&
+          draft.heightIn <= 11 &&
+          draft.weightLb !== null &&
+          draft.weightLb >= 60 &&
+          draft.weightLb <= 500
+        );
+      case 8:
         return draft.trainingDays.length > 0;
       default:
         return true;
@@ -74,7 +117,6 @@ export function OnboardingFlow() {
 
   return (
     <div className="min-h-screen flex flex-col safe-top px-6 pb-8">
-      {/* Progress bar */}
       <div className="flex items-center gap-1.5 mb-8">
         {Array.from({ length: TOTAL_STEPS }).map((_, i) => (
           <div
@@ -106,6 +148,20 @@ export function OnboardingFlow() {
             />
           )}
           {step === 2 && (
+            <BodyStep
+              draft={draft}
+              onChange={(patch) => setDraft({ ...draft, ...patch })}
+            />
+          )}
+          {step === 3 && (
+            <ActivityLevelStep
+              value={draft.activityLevel}
+              onChange={(activityLevel) =>
+                setDraft({ ...draft, activityLevel })
+              }
+            />
+          )}
+          {step === 4 && (
             <FitnessStep
               value={draft.fitnessLevel}
               onChange={(fitnessLevel) =>
@@ -113,19 +169,27 @@ export function OnboardingFlow() {
               }
             />
           )}
-          {step === 3 && (
+          {step === 5 && (
             <ExperienceStep
               value={draft.experience}
               onChange={(experience) => setDraft({ ...draft, experience })}
             />
           )}
-          {step === 4 && (
+          {step === 6 && (
             <GoalStep
               value={draft.goal}
               onChange={(goal) => setDraft({ ...draft, goal })}
             />
           )}
-          {step === 5 && (
+          {step === 7 && (
+            <InjuriesStep
+              value={draft.injuryHistory}
+              onChange={(injuryHistory) =>
+                setDraft({ ...draft, injuryHistory })
+              }
+            />
+          )}
+          {step === 8 && (
             <DaysStep
               value={draft.trainingDays}
               onChange={(trainingDays) =>
@@ -170,7 +234,7 @@ function WelcomeStep() {
         transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
         className="mb-8"
       >
-        <AppLogo size={88} />
+        <AppLogo size={112} />
       </motion.div>
       <motion.h1
         initial={{ opacity: 0, y: 10 }}
@@ -184,10 +248,10 @@ function WelcomeStep() {
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.35 }}
-        className="mt-4 text-[15px] text-text-secondary text-balance max-w-[300px] leading-relaxed"
+        className="mt-4 text-[15px] text-text-secondary text-balance max-w-[320px] leading-relaxed"
       >
-        Your personal AI running coach. Smarter training, beautiful insights,
-        every mile.
+        Your personal AI running coach. We'll learn about you, then build a
+        plan that adapts as you grow.
       </motion.p>
 
       <motion.div
@@ -197,7 +261,7 @@ function WelcomeStep() {
         className="mt-10 flex items-center gap-2 text-[12px] text-text-muted"
       >
         <Sparkles className="h-3.5 w-3.5 text-accent-purple" />
-        Takes less than 60 seconds
+        Takes about 60 seconds
       </motion.div>
     </div>
   );
@@ -229,12 +293,138 @@ function NameStep({
   );
 }
 
+function BodyStep({
+  draft,
+  onChange,
+}: {
+  draft: DraftProfile;
+  onChange: (p: Partial<DraftProfile>) => void;
+}) {
+  return (
+    <div className="flex-1 flex flex-col justify-center">
+      <StepHeader
+        eyebrow="Body basics"
+        title="Tell us about you"
+        sub="We use these to calibrate workouts and recovery. Required to generate your plan."
+      />
+
+      <div className="mt-8 space-y-5">
+        <FieldRow label="Age" hint="years">
+          <NumberInput
+            value={draft.age}
+            min={13}
+            max={100}
+            placeholder="e.g. 28"
+            onChange={(age) => onChange({ age })}
+          />
+        </FieldRow>
+
+        <FieldRow label="Height" hint="ft / in">
+          <div className="flex gap-2">
+            <NumberInput
+              value={draft.heightFt}
+              min={3}
+              max={8}
+              placeholder="5"
+              onChange={(heightFt) => onChange({ heightFt })}
+              suffix="ft"
+            />
+            <NumberInput
+              value={draft.heightIn}
+              min={0}
+              max={11}
+              placeholder="10"
+              onChange={(heightIn) => onChange({ heightIn })}
+              suffix="in"
+            />
+          </div>
+        </FieldRow>
+
+        <FieldRow label="Weight" hint="lb">
+          <NumberInput
+            value={draft.weightLb}
+            min={60}
+            max={500}
+            placeholder="e.g. 160"
+            onChange={(weightLb) => onChange({ weightLb })}
+            suffix="lb"
+          />
+        </FieldRow>
+      </div>
+    </div>
+  );
+}
+
+function ActivityLevelStep({
+  value,
+  onChange,
+}: {
+  value: ActivityLevel;
+  onChange: (v: ActivityLevel) => void;
+}) {
+  const options: {
+    v: ActivityLevel;
+    label: string;
+    sub: string;
+  }[] = [
+    { v: "sedentary", label: "Sedentary", sub: "Mostly seated, minimal exercise" },
+    { v: "light", label: "Light", sub: "Light activity 1–2 days/week" },
+    { v: "moderate", label: "Moderate", sub: "Regular activity 3–4 days/week" },
+    { v: "active", label: "Active", sub: "Hard activity 5+ days/week" },
+    { v: "very_active", label: "Very active", sub: "Athlete / physical job" },
+  ];
+
+  return (
+    <div className="flex-1 flex flex-col justify-center">
+      <StepHeader
+        eyebrow="Daily activity"
+        title="How active are you right now?"
+        sub="This calibrates how aggressively your starting volume ramps."
+      />
+      <div className="mt-6 space-y-2">
+        {options.map((o) => {
+          const active = value === o.v;
+          return (
+            <motion.button
+              key={o.v}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => onChange(o.v)}
+              className={cn(
+                "w-full text-left rounded-2xl p-4 border transition-all",
+                active
+                  ? "border-accent-purple/60 bg-gradient-to-br from-accent-purple/15 to-accent-blue/10"
+                  : "border-white/8 bg-white/[0.03]",
+              )}
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-[15px] font-semibold text-white">
+                    {o.label}
+                  </div>
+                  <div className="text-[13px] text-text-secondary mt-0.5">
+                    {o.sub}
+                  </div>
+                </div>
+                {active && (
+                  <span className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-accent-purple text-white">
+                    <Check className="h-3.5 w-3.5" />
+                  </span>
+                )}
+              </div>
+            </motion.button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function FitnessStep({
   value,
   onChange,
 }: {
-  value: UserProfile["fitnessLevel"];
-  onChange: (v: UserProfile["fitnessLevel"]) => void;
+  value: FitnessLevel;
+  onChange: (v: FitnessLevel) => void;
 }) {
   const options = [
     { v: "beginner", label: "Beginner", sub: "Just getting started" },
@@ -292,8 +482,8 @@ function ExperienceStep({
   value,
   onChange,
 }: {
-  value: UserProfile["experience"];
-  onChange: (v: UserProfile["experience"]) => void;
+  value: Experience;
+  onChange: (v: Experience) => void;
 }) {
   const opts = [
     { v: "0-1", label: "< 1 year" },
@@ -336,8 +526,8 @@ function GoalStep({
   value,
   onChange,
 }: {
-  value: UserProfile["goal"];
-  onChange: (v: UserProfile["goal"]) => void;
+  value: RunningGoal;
+  onChange: (v: RunningGoal) => void;
 }) {
   const opts = [
     { v: "5k", label: "5K", icon: Zap, sub: "Speed & fitness" },
@@ -386,6 +576,67 @@ function GoalStep({
           );
         })}
       </div>
+    </div>
+  );
+}
+
+const INJURY_OPTIONS = [
+  "Knee",
+  "IT band",
+  "Achilles",
+  "Calf",
+  "Hamstring",
+  "Plantar fasciitis",
+  "Hip",
+  "Lower back",
+  "Shin splints",
+];
+
+function InjuriesStep({
+  value,
+  onChange,
+}: {
+  value: string[];
+  onChange: (v: string[]) => void;
+}) {
+  function toggle(injury: string) {
+    if (value.includes(injury)) onChange(value.filter((i) => i !== injury));
+    else onChange([...value, injury]);
+  }
+
+  return (
+    <div className="flex-1 flex flex-col justify-center">
+      <StepHeader
+        eyebrow="Injury history"
+        title="Anything we should know?"
+        sub="Optional. We'll ease back volume when something's flagged — you can edit this anytime."
+      />
+      <div className="mt-8 flex flex-wrap gap-2">
+        {INJURY_OPTIONS.map((injury) => {
+          const active = value.includes(injury);
+          return (
+            <motion.button
+              key={injury}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => toggle(injury)}
+              className={cn(
+                "rounded-full px-4 py-2 border text-[13px] font-medium transition-all inline-flex items-center gap-1.5",
+                active
+                  ? "border-accent-pink/60 bg-accent-pink/15 text-white"
+                  : "border-white/10 bg-white/[0.03] text-text-secondary",
+              )}
+            >
+              {injury}
+              {active && <X className="h-3 w-3" />}
+            </motion.button>
+          );
+        })}
+      </div>
+      {value.length === 0 && (
+        <p className="mt-6 text-[12px] text-text-muted">
+          No history — great. Skip ahead.
+        </p>
+      )}
     </div>
   );
 }
@@ -467,6 +718,73 @@ function StepHeader({
       <p className="mt-2 text-[14px] text-text-secondary text-balance leading-relaxed">
         {sub}
       </p>
+    </div>
+  );
+}
+
+// ─── small inputs ─────────────────────────────────────────────────────────
+
+function FieldRow({
+  label,
+  hint,
+  children,
+}: {
+  label: string;
+  hint?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <div className="flex items-baseline justify-between mb-1.5">
+        <span className="text-[13px] font-semibold text-white">{label}</span>
+        {hint && (
+          <span className="text-[11px] uppercase tracking-wider text-text-muted">
+            {hint}
+          </span>
+        )}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function NumberInput({
+  value,
+  min,
+  max,
+  placeholder,
+  onChange,
+  suffix,
+}: {
+  value: number | null;
+  min: number;
+  max: number;
+  placeholder: string;
+  onChange: (v: number | null) => void;
+  suffix?: string;
+}) {
+  return (
+    <div className="flex-1 relative">
+      <input
+        type="number"
+        inputMode="numeric"
+        value={value ?? ""}
+        min={min}
+        max={max}
+        placeholder={placeholder}
+        onChange={(e) => {
+          const raw = e.target.value;
+          if (raw === "") return onChange(null);
+          const n = Number(raw);
+          if (Number.isFinite(n)) onChange(n);
+        }}
+        className="w-full bg-white/[0.04] border border-white/10 rounded-2xl px-4 py-3 text-[16px] font-semibold text-white placeholder-text-muted outline-none focus:border-accent-purple/60 transition-colors pr-12"
+      />
+      {suffix && (
+        <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[12px] uppercase tracking-wider text-text-muted">
+          {suffix}
+        </span>
+      )}
     </div>
   );
 }

@@ -13,10 +13,8 @@ export function QuickStats() {
     (acc, w) => acc + (w.totalDistance ?? 0),
     0,
   );
-
-  // Compute streak: consecutive non-cancelled, non-missed prior days
   const streak = computeStreak(workouts);
-  const totalRuns = completed.length;
+  const totalRuns = completed.filter((w) => w.type !== "rest").length;
 
   const stats = [
     {
@@ -71,14 +69,15 @@ export function QuickStats() {
   );
 }
 
-function computeStreak(workouts: ReturnType<typeof useNexaStore.getState>["workouts"]): number {
-  // Sort by date desc
+function computeStreak(
+  workouts: ReturnType<typeof useNexaStore.getState>["workouts"],
+): number {
+  if (workouts.length === 0) return 0;
   const map = new Map<string, (typeof workouts)[number]>();
   for (const w of workouts) map.set(w.date, w);
 
   let streak = 0;
   const cursor = new Date();
-  // Walk back from today
   for (let i = 0; i < 60; i++) {
     const k = formatKey(cursor);
     const w = map.get(k);
@@ -101,5 +100,7 @@ function computeStreak(workouts: ReturnType<typeof useNexaStore.getState>["worko
 }
 
 function formatKey(d: Date): string {
-  return `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, "0")}-${d.getDate().toString().padStart(2, "0")}`;
+  return `${d.getFullYear()}-${(d.getMonth() + 1)
+    .toString()
+    .padStart(2, "0")}-${d.getDate().toString().padStart(2, "0")}`;
 }
