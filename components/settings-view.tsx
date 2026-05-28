@@ -30,7 +30,7 @@ import {
   getPushEnabled,
   setDailyReminderEnabled,
   setPushEnabled,
-  showNotification,
+  showLocalNotification,
 } from "@/lib/notifications";
 import {
   isHapticsEnabled,
@@ -110,7 +110,7 @@ export function SettingsView() {
     setReminders(next);
     if (next) {
       // Confirm with a one-off so the user immediately sees it works.
-      await showNotification(
+      await showLocalNotification(
         "Daily reminder on",
         "You'll get a nudge each morning around 8 AM.",
       );

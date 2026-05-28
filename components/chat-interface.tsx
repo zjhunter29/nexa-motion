@@ -7,6 +7,7 @@ import { useNexaStore } from "@/lib/store";
 import { SUGGESTED_PROMPTS, mockReply } from "@/lib/ai-mock";
 import type { ChatMessage } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { MarkdownMessage } from "./markdown-message";
 
 function makeId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -261,13 +262,21 @@ function Bubble({ message }: { message: ChatMessage }) {
     >
       <div
         className={cn(
-          "max-w-[85%] rounded-3xl px-4 py-3 text-[14.5px] leading-relaxed",
+          "max-w-[85%] min-w-0 rounded-3xl px-4 py-3 text-[14.5px] leading-relaxed break-words",
           isUser
             ? "bg-gradient-to-br from-accent-purple/90 to-accent-blue/90 text-white rounded-br-md shadow-glow-purple"
             : "glass-panel rounded-bl-md text-text-primary",
         )}
       >
-        <div className="whitespace-pre-wrap text-balance">{message.content}</div>
+        {isUser ? (
+          // User messages are typed in by hand — render as plain text with
+          // line break preservation, no markdown parsing.
+          <div className="whitespace-pre-wrap text-balance">
+            {message.content}
+          </div>
+        ) : (
+          <MarkdownMessage content={message.content} />
+        )}
       </div>
     </motion.div>
   );

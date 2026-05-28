@@ -1,22 +1,20 @@
 /**
- * Notifications + daily reminder layer.
+ * Real Web Push notifications wired end-to-end.
  *
- * Strategy:
- * 1. Use the Web Notifications API for permission + display. Works on every
- *    modern browser, including iOS 16.4+ once the PWA is added to the home
- *    screen.
- * 2. Register a service worker so notifications can render even when the
- *    app tab is in the background.
- * 3. For the "Daily AI reminder", we don't have a backend cron + push
- *    infrastructure (would need FCM / OneSignal / a VAPID + Netlify
- *    Function combo). Instead we:
- *       - schedule a setTimeout that fires the next 8 AM reminder while
- *         the tab is open,
- *       - and every time the app opens, check whether a reminder is due
- *         and fire one immediately if so.
- *    To actually deliver reminders when the app is closed, swap the
- *    `scheduleNext()` block out for a push subscription against your
- *    server.
+ *   - Service worker (public/sw.js) handles `push` + `notificationclick`.
+ *   - This client module owns the permission + subscription flow on the
+ *     browser side.
+ *   - Subscriptions are POSTed to /api/push/subscribe and persisted in
+ *     Netlify Blobs (see lib/server/push.ts).
+ *   - A Netlify Scheduled Function (netlify/functions/daily-reminder.mts)
+ *     runs daily at 13:00 UTC and broadcasts to every subscription.
+ *
+ *   Two env vars required for production:
+ *     NEXT_PUBLIC_VAPID_PUBLIC_KEY  (exposed to browser)
+ *     VAPID_PRIVATE_KEY             (server only)
+ *     VAPID_CONTACT                 (mailto: address for push servers)
+ *
+ *   Generate them with: `npm run vapid`
  */
 
 const STORAGE_KEYS = {
@@ -25,9 +23,8 @@ const STORAGE_KEYS = {
   lastReminderDate: "nexa-motion-last-reminder-date",
 } as const;
 
-const REMINDER_HOUR = 8; // 8 AM local time
+const REMINDER_HOUR = 8; // 8 AM local — used by the in-app fallback fire
 const ICON = "/nexa-logo.png";
-const BADGE = "/nexa-logo.png";
 
 // ─── Public API ──────────────────────────────────────────────────────────
 
@@ -36,7 +33,8 @@ export function isNotificationsSupported(): boolean {
     typeof window !== "undefined" &&
     typeof Notification !== "undefined" &&
     typeof navigator !== "undefined" &&
-    "serviceWorker" in navigator
+    "serviceWorker" in navigator &&
+    "PushManager" in window
   );
 }
 
@@ -64,14 +62,44 @@ export async function setPushEnabled(enabled: boolean): Promise<boolean> {
       localStorage.setItem(STORAGE_KEYS.pushEnabled, "false");
       return false;
     }
-    await ensureServiceWorker();
+    const reg = await ensureServiceWorker();
+    if (!reg) {
+      localStorage.setItem(STORAGE_KEYS.pushEnabled, "false");
+      return false;
+    }
+    const subscribed = await subscribeToPush(reg);
+    if (!subscribed) {
+      localStorage.setItem(STORAGE_KEYS.pushEnabled, "false");
+      return false;
+    }
     localStorage.setItem(STORAGE_KEYS.pushEnabled, "true");
-    // Confirm it actually works with a one-off test notification.
-    await showNotification(
-      "Notifications on",
-      "We'll let you know when it's time to run.",
-    );
+    // Trigger an immediate server-side test push so the user knows it works.
+    try {
+      await fetch("/api/push/test", { method: "POST" });
+    } catch {
+      // Network blip — local notification fallback below still confirms it.
+      await showLocalNotification(
+        "Notifications on",
+        "We'll let you know when it's time to run.",
+      );
+    }
     return true;
+  }
+  // Unsubscribe + tell the server to forget us.
+  try {
+    const reg = await navigator.serviceWorker.getRegistration("/");
+    const sub = await reg?.pushManager.getSubscription();
+    if (sub) {
+      const endpoint = sub.endpoint;
+      await sub.unsubscribe();
+      await fetch("/api/push/unsubscribe", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ endpoint }),
+      }).catch(() => {});
+    }
+  } catch {
+    // ignore
   }
   localStorage.setItem(STORAGE_KEYS.pushEnabled, "false");
   return true;
@@ -87,12 +115,15 @@ export async function setDailyReminderEnabled(
 ): Promise<boolean> {
   if (typeof window === "undefined") return false;
   if (enabled) {
-    const result = await requestNotificationPermission();
-    if (result !== "granted") {
-      localStorage.setItem(STORAGE_KEYS.dailyEnabled, "false");
-      return false;
+    // Daily reminders ride on the same push subscription. If push isn't
+    // already on, opt-in to it first.
+    if (!getPushEnabled()) {
+      const ok = await setPushEnabled(true);
+      if (!ok) {
+        localStorage.setItem(STORAGE_KEYS.dailyEnabled, "false");
+        return false;
+      }
     }
-    await ensureServiceWorker();
     localStorage.setItem(STORAGE_KEYS.dailyEnabled, "true");
     scheduleNextDailyReminder();
     return true;
@@ -102,8 +133,9 @@ export async function setDailyReminderEnabled(
 }
 
 /**
- * Run on app start. Registers the SW, fires any overdue daily reminder, and
- * schedules the next one.
+ * Boot the notification subsystem. Registers the service worker and, if
+ * the user has opted in but the server-side cron hasn't fired today yet
+ * (e.g. timezone gap), shows a local fallback notification.
  */
 export async function initNotifications() {
   if (!isNotificationsSupported()) return;
@@ -114,7 +146,7 @@ export async function initNotifications() {
   }
 }
 
-export async function showNotification(title: string, body: string) {
+export async function showLocalNotification(title: string, body: string) {
   if (!isNotificationsSupported()) return;
   if (Notification.permission !== "granted") return;
   try {
@@ -122,11 +154,10 @@ export async function showNotification(title: string, body: string) {
     await reg.showNotification(title, {
       body,
       icon: ICON,
-      badge: BADGE,
+      badge: ICON,
       tag: "nexa-motion",
     });
   } catch {
-    // Fallback for environments where SW isn't available
     try {
       new Notification(title, { body, icon: ICON });
     } catch {
@@ -139,7 +170,7 @@ export async function showNotification(title: string, body: string) {
 
 async function ensureServiceWorker() {
   if (typeof navigator === "undefined" || !("serviceWorker" in navigator))
-    return;
+    return undefined;
   try {
     const existing = await navigator.serviceWorker.getRegistration("/");
     if (existing) return existing;
@@ -147,6 +178,60 @@ async function ensureServiceWorker() {
   } catch {
     return undefined;
   }
+}
+
+async function subscribeToPush(
+  reg: ServiceWorkerRegistration,
+): Promise<boolean> {
+  const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+  if (!vapidPublicKey) {
+    console.warn(
+      "[notifications] NEXT_PUBLIC_VAPID_PUBLIC_KEY not set — push subscription skipped.",
+    );
+    return false;
+  }
+  try {
+    // Re-use existing subscription if there is one.
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) {
+      sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
+      });
+    }
+    const json = sub.toJSON();
+    if (!json.endpoint || !json.keys?.p256dh || !json.keys?.auth) {
+      console.warn("[notifications] subscription missing keys");
+      return false;
+    }
+    const res = await fetch("/api/push/subscribe", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        endpoint: json.endpoint,
+        keys: { p256dh: json.keys.p256dh, auth: json.keys.auth },
+      }),
+    });
+    return res.ok;
+  } catch (err) {
+    console.warn("[notifications] subscribe failed", err);
+    return false;
+  }
+}
+
+/**
+ * VAPID public keys are base64url-encoded. The Push API needs a buffer
+ * backed by a non-shared ArrayBuffer, so we allocate the buffer explicitly
+ * to satisfy TypeScript's BufferSource typing.
+ */
+function urlBase64ToUint8Array(base64: string): Uint8Array<ArrayBuffer> {
+  const padding = "=".repeat((4 - (base64.length % 4)) % 4);
+  const b64 = (base64 + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const raw = atob(b64);
+  const buffer = new ArrayBuffer(raw.length);
+  const arr = new Uint8Array(buffer);
+  for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+  return arr as Uint8Array<ArrayBuffer>;
 }
 
 function todayKey(): string {
@@ -160,19 +245,10 @@ async function maybeFireOverdueReminder() {
   const last = localStorage.getItem(STORAGE_KEYS.lastReminderDate);
   const today = todayKey();
   const now = new Date();
-  // Only fire if it's past the reminder hour today AND we haven't reminded
-  // today yet.
   if (last !== today && now.getHours() >= REMINDER_HOUR) {
-    await fireDailyReminder();
+    await showLocalNotification("Time to run", pickReminderLine());
+    localStorage.setItem(STORAGE_KEYS.lastReminderDate, today);
   }
-}
-
-async function fireDailyReminder() {
-  await showNotification(
-    "Time to run",
-    pickReminderLine(),
-  );
-  localStorage.setItem(STORAGE_KEYS.lastReminderDate, todayKey());
 }
 
 let scheduledTimer: ReturnType<typeof setTimeout> | null = null;
@@ -184,10 +260,10 @@ function scheduleNextDailyReminder() {
   next.setHours(REMINDER_HOUR, 0, 0, 0);
   if (next <= now) next.setDate(next.getDate() + 1);
   const delay = next.getTime() - now.getTime();
-  // setTimeout caps at ~24.8 days; we're well under that.
   scheduledTimer = setTimeout(async () => {
     if (getDailyReminderEnabled() && Notification.permission === "granted") {
-      await fireDailyReminder();
+      await showLocalNotification("Time to run", pickReminderLine());
+      localStorage.setItem(STORAGE_KEYS.lastReminderDate, todayKey());
     }
     scheduleNextDailyReminder();
   }, delay);

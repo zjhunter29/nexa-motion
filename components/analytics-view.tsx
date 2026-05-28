@@ -335,44 +335,48 @@ function FeelingSummary({ workouts }: { workouts: Workout[] }) {
           here as a visual snapshot of how training has felt overall.
         </p>
       ) : (
-        <div className="flex items-center gap-5">
+        <div className="flex items-center gap-4 min-w-0">
           {/* Big face */}
           <div
-            className="relative h-24 w-24 shrink-0 rounded-3xl border flex items-center justify-center"
+            className="relative h-20 w-20 shrink-0 rounded-3xl border flex items-center justify-center"
             style={{
               background: `radial-gradient(circle at 30% 30%, ${color}33, ${color}11)`,
               borderColor: `${color}55`,
               boxShadow: `0 0 40px ${color}33`,
             }}
           >
-            <Icon className="h-12 w-12" style={{ color }} strokeWidth={2.2} />
+            <Icon className="h-10 w-10" style={{ color }} strokeWidth={2.2} />
           </div>
 
           {/* Distribution */}
           <div className="flex-1 min-w-0">
-            <div className="flex items-baseline gap-2 mb-2">
+            <div className="flex items-baseline gap-1.5 mb-1 flex-wrap">
               <span
-                className="text-3xl font-semibold tabular-nums"
+                className="text-2xl font-semibold tabular-nums leading-none"
                 style={{ color }}
               >
                 {avg!.toFixed(1)}
               </span>
-              <span className="text-[12px] text-text-muted">
-                / 5 average · {face?.label}
-              </span>
+              <span className="text-[11px] text-text-muted">/ 5 avg</span>
             </div>
+            <p className="text-[11px] text-text-secondary mb-2 truncate">
+              {face?.label}
+            </p>
             <div className="space-y-1">
               {FEELING_SCALE.map((f, i) => {
                 const count = dist[i];
                 const pct = (count / max) * 100;
                 const FaceIcon = f.icon;
                 return (
-                  <div key={f.rating} className="flex items-center gap-2">
+                  <div
+                    key={f.rating}
+                    className="flex items-center gap-2 min-w-0"
+                  >
                     <FaceIcon
                       className="h-3 w-3 shrink-0"
                       style={{ color: f.color }}
                     />
-                    <div className="flex-1 h-1.5 bg-white/[0.05] rounded-full overflow-hidden">
+                    <div className="flex-1 min-w-0 h-1.5 bg-white/[0.05] rounded-full overflow-hidden">
                       <motion.div
                         initial={{ width: 0 }}
                         animate={{ width: `${pct}%` }}
@@ -385,7 +389,7 @@ function FeelingSummary({ workouts }: { workouts: Workout[] }) {
                         style={{ background: f.color }}
                       />
                     </div>
-                    <span className="text-[10px] text-text-muted tabular-nums w-3 text-right">
+                    <span className="text-[10px] text-text-muted tabular-nums w-4 text-right shrink-0">
                       {count}
                     </span>
                   </div>
@@ -428,38 +432,42 @@ function FeelingTrend({ workouts }: { workouts: Workout[] }) {
           spot patterns in your training and recovery at a glance.
         </p>
       ) : (
-        <div className="mt-4 flex items-end justify-between gap-2 flex-wrap">
-          {rated.map((w) => {
-            const face = faceForRating(w.feelingRating!);
-            const Icon = face.icon;
-            const d = new Date(w.date);
-            const dayLabel = d.toLocaleDateString("en-US", {
-              month: "short",
-              day: "numeric",
-            });
-            return (
-              <div
-                key={w.id}
-                className="flex flex-col items-center gap-1 min-w-0"
-              >
+        <div className="mt-4 -mx-1 px-1 overflow-x-auto no-scrollbar">
+          <div className="flex items-end gap-3 min-w-min">
+            {rated.map((w) => {
+              const face = faceForRating(w.feelingRating!);
+              const Icon = face.icon;
+              const d = new Date(w.date);
+              const dayLabel = d.toLocaleDateString("en-US", {
+                month: "short",
+                day: "numeric",
+              });
+              return (
                 <div
-                  className="h-10 w-10 rounded-2xl border flex items-center justify-center"
-                  style={{
-                    background: `linear-gradient(135deg, ${face.color}22, ${face.color}08)`,
-                    borderColor: `${face.color}55`,
-                  }}
-                  title={`${face.label} — ${w.title}`}
+                  key={w.id}
+                  className="flex flex-col items-center gap-1 shrink-0"
                 >
-                  <Icon
-                    className="h-5 w-5"
-                    style={{ color: face.color }}
-                    strokeWidth={2.2}
-                  />
+                  <div
+                    className="h-10 w-10 rounded-2xl border flex items-center justify-center"
+                    style={{
+                      background: `linear-gradient(135deg, ${face.color}22, ${face.color}08)`,
+                      borderColor: `${face.color}55`,
+                    }}
+                    title={`${face.label} — ${w.title}`}
+                  >
+                    <Icon
+                      className="h-5 w-5"
+                      style={{ color: face.color }}
+                      strokeWidth={2.2}
+                    />
+                  </div>
+                  <span className="text-[9px] text-text-muted whitespace-nowrap">
+                    {dayLabel}
+                  </span>
                 </div>
-                <span className="text-[9px] text-text-muted">{dayLabel}</span>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
       )}
     </motion.div>
