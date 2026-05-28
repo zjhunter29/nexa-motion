@@ -1,15 +1,14 @@
 /**
- * Server-side Web Push helpers. Used by /api/push/* routes and the Netlify
- * Scheduled Function that fires the daily reminder.
+ * Server-side Web Push helpers. Used by /api/push/* routes and the
+ * /api/cron/daily-reminder Vercel Cron Job.
  *
- * Subscriptions live in Netlify Blobs (a built-in KV store, no setup
- * required — works the moment NEXT_PUBLIC_VAPID_PUBLIC_KEY +
- * VAPID_PRIVATE_KEY + VAPID_CONTACT are set as env vars).
+ * Subscriptions live in Vercel KV (provisioned in the Vercel dashboard;
+ * automatically injects KV_REST_API_URL + KV_REST_API_TOKEN env vars).
  */
 import webpush from "web-push";
-import { getStore, type Store } from "@netlify/blobs";
+import { kv } from "@vercel/kv";
 
-const STORE_NAME = "push-subscriptions";
+const KEY_PREFIX = "push:sub:";
 
 export interface StoredSubscription {
   endpoint: string;
@@ -26,46 +25,38 @@ function configureVapid() {
   const contact = process.env.VAPID_CONTACT ?? "mailto:admin@nexa-motion.app";
   if (!pub || !priv) {
     throw new Error(
-      "Missing VAPID env vars. Run `npm run vapid` and set NEXT_PUBLIC_VAPID_PUBLIC_KEY + VAPID_PRIVATE_KEY in Netlify.",
+      "Missing VAPID env vars. Run `npm run vapid` and set NEXT_PUBLIC_VAPID_PUBLIC_KEY + VAPID_PRIVATE_KEY in Vercel.",
     );
   }
   webpush.setVapidDetails(contact, pub, priv);
   configured = true;
 }
 
-function store(): Store {
-  // `getStore("name")` requires Netlify runtime context. Works in
-  // Netlify Functions (scheduled + on-demand) and the Next.js runtime
-  // on Netlify automatically.
-  return getStore(STORE_NAME);
-}
-
-/** Stable key derived from endpoint — safer than using the full URL. */
+/** Stable key derived from endpoint — collision-safe enough for our use. */
 function keyFor(endpoint: string): string {
   let hash = 0;
   for (let i = 0; i < endpoint.length; i++) {
     hash = (hash * 31 + endpoint.charCodeAt(i)) | 0;
   }
-  return `sub-${(hash >>> 0).toString(36)}`;
+  return `${KEY_PREFIX}${(hash >>> 0).toString(36)}`;
 }
 
 export async function saveSubscription(sub: StoredSubscription) {
-  const key = keyFor(sub.endpoint);
-  await store().setJSON(key, sub);
+  await kv.set(keyFor(sub.endpoint), sub);
 }
 
 export async function deleteSubscription(endpoint: string) {
-  const key = keyFor(endpoint);
-  await store().delete(key);
+  await kv.del(keyFor(endpoint));
 }
 
 export async function listSubscriptions(): Promise<StoredSubscription[]> {
-  const s = store();
-  const { blobs } = await s.list();
-  const items = await Promise.all(
-    blobs.map(async (b) => (await s.get(b.key, { type: "json" })) as StoredSubscription | null),
-  );
-  return items.filter((x): x is StoredSubscription => !!x);
+  // kv.keys uses Redis SCAN under the hood — safe up to large fleets.
+  const keys = await kv.keys(`${KEY_PREFIX}*`);
+  if (keys.length === 0) return [];
+  // mget returns the values in the same order as the keys, with `null` for
+  // any that have been deleted between scan and read.
+  const values = await kv.mget<StoredSubscription[]>(...keys);
+  return values.filter((v): v is StoredSubscription => !!v);
 }
 
 export async function sendPush(
