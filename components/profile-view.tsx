@@ -17,6 +17,7 @@ import { useNexaStore } from "@/lib/store";
 import { AnimatedCounter } from "./animated-counter";
 import { useMemo } from "react";
 import { formatPace } from "@/lib/utils";
+import { useUnits } from "@/lib/use-units";
 
 const ICON_MAP = {
   Footprints,
@@ -39,6 +40,7 @@ export function ProfileView() {
   const workouts = useNexaStore((s) => s.workouts);
   const completedRuns = useNexaStore((s) => s.completedRuns);
   const achievements = useNexaStore((s) => s.achievements);
+  const { formatDistance, distanceUnit, paceUnit } = useUnits();
 
   const completed = workouts.filter((w) => w.status === "completed");
   const totalMiles = completed.reduce(
@@ -53,7 +55,10 @@ export function ProfileView() {
   const totalRuns = completed.filter((w) => w.type !== "rest").length;
 
   // Compute personal records from real completed runs.
-  const records = useMemo(() => computeRecords(completedRuns), [completedRuns]);
+  const records = useMemo(
+    () => computeRecords(completedRuns, formatDistance, paceUnit),
+    [completedRuns, formatDistance, paceUnit],
+  );
 
   const initials =
     (profile.name || "Runner")
@@ -130,8 +135,8 @@ export function ProfileView() {
         />
         <BigStat
           icon={Mountain}
-          label="Miles"
-          value={totalMiles}
+          label={distanceUnit === "mi" ? "Miles" : "Km"}
+          value={distanceUnit === "mi" ? totalMiles : totalMiles * 1.609344}
           decimals={1}
           color="#C084FC"
         />
@@ -277,7 +282,7 @@ export function ProfileView() {
             <SummaryRow label="Runs completed" value={`${totalRuns}`} />
             <SummaryRow
               label="Total distance"
-              value={`${totalMiles.toFixed(1)} mi`}
+              value={formatDistance(totalMiles)}
             />
             <SummaryRow
               label="Time spent"
@@ -347,39 +352,35 @@ function SummaryRow({ label, value }: { label: string; value: string }) {
 
 function computeRecords(
   runs: ReturnType<typeof useNexaStore.getState>["completedRuns"],
+  formatDistance: (miles: number) => string,
+  paceUnit: "/mi" | "/km",
 ): { label: string; value: string }[] {
   if (runs.length === 0) {
     return [
+      { label: "Best pace", value: "—" },
       { label: "1 mile", value: "—" },
       { label: "5K", value: "—" },
       { label: "Longest", value: "—" },
-      { label: "Best pace", value: "—" },
     ];
   }
   const bestPace = Math.min(...runs.map((r) => r.avgPaceMinMile));
   const longest = Math.max(...runs.map((r) => r.distance));
-  // 5K = 3.1 miles — use best pace × distance approximation
+  // 5K ≈ 3.1 miles — use best pace × distance approximation
   const has5k = runs.some((r) => r.distance >= 3.1);
   const best5k = has5k
     ? runs
         .filter((r) => r.distance >= 3.1)
-        .map((r) => r.durationSec / r.distance * 3.1)
+        .map((r) => (r.durationSec / r.distance) * 3.1)
         .sort((a, b) => a - b)[0]
     : null;
+  // Convert pace to per-km if needed
+  const displayPace =
+    paceUnit === "/km" ? bestPace / 1.609344 : bestPace;
   return [
-    { label: "Best pace", value: `${formatPace(bestPace)}/mi` },
-    {
-      label: "1 mile",
-      value: formatTimeFromPace(bestPace),
-    },
-    {
-      label: "5K",
-      value: best5k ? formatHMS(best5k) : "—",
-    },
-    {
-      label: "Longest",
-      value: `${longest.toFixed(1)} mi`,
-    },
+    { label: "Best pace", value: `${formatPace(displayPace)}${paceUnit}` },
+    { label: "1 mile", value: formatTimeFromPace(bestPace) },
+    { label: "5K", value: best5k ? formatHMS(best5k) : "—" },
+    { label: "Longest", value: formatDistance(longest) },
   ];
 }
 

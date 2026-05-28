@@ -7,8 +7,6 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
-  Line,
-  LineChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -16,16 +14,18 @@ import {
 } from "recharts";
 import {
   Activity,
-  Heart,
-  Footprints,
   TrendingDown,
-  Mountain,
   BarChart3,
+  Sparkles,
+  Heart,
 } from "lucide-react";
 import Link from "next/link";
 import { useNexaStore } from "@/lib/store";
 import { AnimatedCounter } from "./animated-counter";
 import { useMemo } from "react";
+import { FEELING_SCALE, faceForAverage, faceForRating } from "@/lib/feelings";
+import { useUnits } from "@/lib/use-units";
+import type { Workout } from "@/lib/types";
 
 const fadeUp = {
   initial: { opacity: 0, y: 14 },
@@ -35,38 +35,14 @@ const fadeUp = {
 
 export function AnalyticsView() {
   const completedRuns = useNexaStore((s) => s.completedRuns);
+  const workouts = useNexaStore((s) => s.workouts);
   const hasGeneratedPlan = useNexaStore((s) => s.profile.hasGeneratedPlan);
+  const { distanceValue, distanceUnit } = useUnits();
 
-  // Derive real values from completed runs.
-  const totals = useMemo(() => {
-    const totalDistance = completedRuns.reduce((a, r) => a + r.distance, 0);
-    const totalSeconds = completedRuns.reduce((a, r) => a + r.durationSec, 0);
-    const totalElevation = completedRuns.reduce(
-      (a, r) => a + r.elevationGain,
-      0,
-    );
-    const avgHr =
-      completedRuns.length > 0
-        ? Math.round(
-            completedRuns.reduce((a, r) => a + r.avgHeartRate, 0) /
-              completedRuns.length,
-          )
-        : 0;
-    const avgCadence =
-      completedRuns.length > 0
-        ? Math.round(
-            completedRuns.reduce((a, r) => a + r.cadence, 0) /
-              completedRuns.length,
-          )
-        : 0;
-    return {
-      totalDistance,
-      totalSeconds,
-      totalElevation,
-      avgHr,
-      avgCadence,
-    };
-  }, [completedRuns]);
+  const totalDistanceDisplay = useMemo(
+    () => distanceValue(completedRuns.reduce((a, r) => a + r.distance, 0)),
+    [completedRuns, distanceValue],
+  );
 
   const hasData = completedRuns.length > 0;
 
@@ -84,7 +60,7 @@ export function AnalyticsView() {
     return (
       <AnalyticsEmptyState
         title="Complete your first workout"
-        body="Your charts will populate the moment you mark an activity complete. Pace, distance, heart-rate zones, cadence — all driven by your real data."
+        body="Your charts will populate the moment you mark an activity complete. Pace, distance, and how you felt — all driven by your real data."
         ctaLabel="View today's workout"
       />
     );
@@ -101,46 +77,34 @@ export function AnalyticsView() {
         </h1>
       </motion.header>
 
+      {/* Single hero KPI — total distance only */}
       <motion.div
         {...fadeUp}
         transition={{ ...fadeUp.transition, delay: 0.05 }}
-        className="grid grid-cols-2 gap-3"
+        className="glass-panel rounded-3xl p-5"
       >
-        <KpiCard
-          icon={Activity}
-          label="Total miles"
-          value={totals.totalDistance}
-          decimals={1}
-          suffix=" mi"
-          accent="#C084FC"
-        />
-        <KpiCard
-          icon={Heart}
-          label="Avg HR"
-          value={totals.avgHr}
-          suffix=" bpm"
-          accent="#EC4899"
-        />
-        <KpiCard
-          icon={Footprints}
-          label="Avg cadence"
-          value={totals.avgCadence}
-          suffix=" spm"
-          accent="#60A5FA"
-        />
-        <KpiCard
-          icon={Mountain}
-          label="Elevation"
-          value={Math.round(totals.totalElevation)}
-          suffix=" ft"
-          accent="#10B981"
-        />
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.18em] text-text-muted font-semibold">
+              Total distance
+            </p>
+            <div className="mt-1 text-3xl font-semibold text-white tabular-nums">
+              <AnimatedCounter value={totalDistanceDisplay} decimals={1} />
+              <span className="text-base font-medium text-text-secondary ml-2">
+                {distanceUnit}
+              </span>
+            </div>
+          </div>
+          <span className="inline-flex items-center justify-center h-12 w-12 rounded-2xl bg-gradient-to-br from-accent-purple/30 to-accent-blue/15 border border-white/10">
+            <Activity className="h-5 w-5 text-accent-purple-bright" />
+          </span>
+        </div>
       </motion.div>
 
       <PaceTrend runs={completedRuns} />
       <MileageBars runs={completedRuns} />
-      <HRZones runs={completedRuns} />
-      <Cadence runs={completedRuns} />
+      <FeelingSummary workouts={workouts} />
+      <FeelingTrend workouts={workouts} />
     </div>
   );
 }
@@ -185,25 +149,6 @@ function AnalyticsEmptyState({
           {ctaLabel}
         </Link>
       </motion.div>
-
-      <div className="mt-4 grid grid-cols-2 gap-3">
-        <SkeletonStat label="Total miles" />
-        <SkeletonStat label="Avg pace" />
-        <SkeletonStat label="Avg HR" />
-        <SkeletonStat label="Cadence" />
-      </div>
-    </div>
-  );
-}
-
-function SkeletonStat({ label }: { label: string }) {
-  return (
-    <div className="stat-tile p-4">
-      <div className="text-[11px] uppercase tracking-wider text-text-muted font-medium mb-2">
-        {label}
-      </div>
-      <div className="h-6 w-16 rounded bg-white/[0.05]" />
-      <div className="mt-2 h-1 w-full rounded-full bg-white/[0.04]" />
     </div>
   );
 }
@@ -213,9 +158,14 @@ function PaceTrend({
 }: {
   runs: ReturnType<typeof useNexaStore.getState>["completedRuns"];
 }) {
-  const data = runs
-    .slice(-8)
-    .map((r, i) => ({ label: `R${i + 1}`, pace: Number(r.avgPaceMinMile.toFixed(2)) }));
+  const { paceUnit } = useUnits();
+  const isMetric = paceUnit === "/km";
+  const data = runs.slice(-8).map((r, i) => ({
+    label: `R${i + 1}`,
+    pace: Number(
+      (isMetric ? r.avgPaceMinMile / 1.609344 : r.avgPaceMinMile).toFixed(2),
+    ),
+  }));
 
   return (
     <motion.div {...fadeUp} className="glass-panel rounded-3xl p-5">
@@ -261,7 +211,7 @@ function PaceTrend({
                 color: "#fff",
                 fontSize: 12,
               }}
-              formatter={(v) => [`${v} min/mi`, "Pace"]}
+              formatter={(v) => [`${v} min${paceUnit}`, "Pace"]}
             />
             <Area
               type="monotone"
@@ -282,9 +232,10 @@ function MileageBars({
 }: {
   runs: ReturnType<typeof useNexaStore.getState>["completedRuns"];
 }) {
+  const { distanceValue, distanceUnit } = useUnits();
   const data = runs.slice(-8).map((r, i) => ({
     label: `R${i + 1}`,
-    miles: Number(r.distance.toFixed(1)),
+    distance: Number(distanceValue(r.distance).toFixed(2)),
   }));
 
   return (
@@ -329,9 +280,9 @@ function MileageBars({
                 color: "#fff",
                 fontSize: 12,
               }}
-              formatter={(v) => [`${v} mi`, "Miles"]}
+              formatter={(v) => [`${v} ${distanceUnit}`, "Distance"]}
             />
-            <Bar dataKey="miles" fill="url(#milesFill)" radius={[8, 8, 0, 0]} />
+            <Bar dataKey="distance" fill="url(#milesFill)" radius={[8, 8, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </div>
@@ -339,27 +290,25 @@ function MileageBars({
   );
 }
 
-function HRZones({
-  runs,
-}: {
-  runs: ReturnType<typeof useNexaStore.getState>["completedRuns"];
-}) {
-  // Approximate zone time from avg HR + duration per run.
-  const zones = [
-    { zone: "Z1", color: "#10B981", minutes: 0 },
-    { zone: "Z2", color: "#3B82F6", minutes: 0 },
-    { zone: "Z3", color: "#A855F7", minutes: 0 },
-    { zone: "Z4", color: "#EC4899", minutes: 0 },
-    { zone: "Z5", color: "#EF4444", minutes: 0 },
-  ];
-  for (const r of runs) {
-    const m = Math.round(r.durationSec / 60);
-    const hr = r.avgHeartRate;
-    const idx =
-      hr < 130 ? 0 : hr < 150 ? 1 : hr < 165 ? 2 : hr < 180 ? 3 : 4;
-    zones[idx].minutes += m;
-  }
-  const total = zones.reduce((a, z) => a + z.minutes, 0) || 1;
+// ─── Feeling components ──────────────────────────────────────────────────
+
+function FeelingSummary({ workouts }: { workouts: Workout[] }) {
+  const ratings = workouts
+    .filter((w) => w.status === "completed" && w.feelingRating != null)
+    .map((w) => w.feelingRating as number);
+
+  const avg = ratings.length
+    ? ratings.reduce((a, b) => a + b, 0) / ratings.length
+    : null;
+  const face = faceForAverage(avg);
+  const Icon = face?.icon ?? Heart;
+  const color = face?.color ?? "#A8A8B3";
+
+  // Distribution counts (1-5)
+  const dist = [1, 2, 3, 4, 5].map(
+    (r) => ratings.filter((x) => x === r).length,
+  );
+  const max = Math.max(1, ...dist);
 
   return (
     <motion.div
@@ -367,51 +316,93 @@ function HRZones({
       transition={{ ...fadeUp.transition, delay: 0.15 }}
       className="glass-panel rounded-3xl p-5"
     >
-      <p className="text-[11px] uppercase tracking-[0.18em] text-text-muted font-semibold mb-1">
-        Heart-rate zones
-      </p>
-      <h3 className="text-lg font-semibold text-white mb-4">Time in zone</h3>
-      <div className="space-y-2.5">
-        {zones.map((z) => {
-          const pct = (z.minutes / total) * 100;
-          return (
-            <div key={z.zone}>
-              <div className="flex items-center justify-between text-[12px] mb-1.5">
-                <span className="font-semibold text-white">{z.zone}</span>
-                <span className="text-text-secondary tabular-nums">
-                  {z.minutes}m
-                </span>
-              </div>
-              <div className="h-2 rounded-full bg-white/[0.04] overflow-hidden">
-                <motion.div
-                  initial={{ width: 0 }}
-                  animate={{ width: `${pct}%` }}
-                  transition={{
-                    duration: 1.2,
-                    delay: 0.2,
-                    ease: [0.16, 1, 0.3, 1],
-                  }}
-                  className="h-full rounded-full"
-                  style={{ background: z.color }}
-                />
-              </div>
-            </div>
-          );
-        })}
+      <div className="flex items-start justify-between mb-4">
+        <div>
+          <p className="text-[11px] uppercase tracking-[0.18em] text-text-muted font-semibold">
+            How you feel
+          </p>
+          <h3 className="mt-1 text-lg font-semibold text-white">
+            {ratings.length === 0
+              ? "Rate your first activity"
+              : `Across ${ratings.length} workout${ratings.length === 1 ? "" : "s"}`}
+          </h3>
+        </div>
       </div>
+
+      {ratings.length === 0 ? (
+        <p className="text-[13px] text-text-secondary leading-relaxed">
+          Tap a face when you complete an activity — your average shows up
+          here as a visual snapshot of how training has felt overall.
+        </p>
+      ) : (
+        <div className="flex items-center gap-5">
+          {/* Big face */}
+          <div
+            className="relative h-24 w-24 shrink-0 rounded-3xl border flex items-center justify-center"
+            style={{
+              background: `radial-gradient(circle at 30% 30%, ${color}33, ${color}11)`,
+              borderColor: `${color}55`,
+              boxShadow: `0 0 40px ${color}33`,
+            }}
+          >
+            <Icon className="h-12 w-12" style={{ color }} strokeWidth={2.2} />
+          </div>
+
+          {/* Distribution */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-baseline gap-2 mb-2">
+              <span
+                className="text-3xl font-semibold tabular-nums"
+                style={{ color }}
+              >
+                {avg!.toFixed(1)}
+              </span>
+              <span className="text-[12px] text-text-muted">
+                / 5 average · {face?.label}
+              </span>
+            </div>
+            <div className="space-y-1">
+              {FEELING_SCALE.map((f, i) => {
+                const count = dist[i];
+                const pct = (count / max) * 100;
+                const FaceIcon = f.icon;
+                return (
+                  <div key={f.rating} className="flex items-center gap-2">
+                    <FaceIcon
+                      className="h-3 w-3 shrink-0"
+                      style={{ color: f.color }}
+                    />
+                    <div className="flex-1 h-1.5 bg-white/[0.05] rounded-full overflow-hidden">
+                      <motion.div
+                        initial={{ width: 0 }}
+                        animate={{ width: `${pct}%` }}
+                        transition={{
+                          duration: 0.9,
+                          delay: 0.2 + i * 0.05,
+                          ease: [0.16, 1, 0.3, 1],
+                        }}
+                        className="h-full rounded-full"
+                        style={{ background: f.color }}
+                      />
+                    </div>
+                    <span className="text-[10px] text-text-muted tabular-nums w-3 text-right">
+                      {count}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
     </motion.div>
   );
 }
 
-function Cadence({
-  runs,
-}: {
-  runs: ReturnType<typeof useNexaStore.getState>["completedRuns"];
-}) {
-  const data = runs.slice(-7).map((r, i) => ({
-    label: `R${i + 1}`,
-    cadence: r.cadence,
-  }));
+function FeelingTrend({ workouts }: { workouts: Workout[] }) {
+  const rated = workouts
+    .filter((w) => w.status === "completed" && w.feelingRating != null)
+    .slice(-10);
 
   return (
     <motion.div
@@ -419,80 +410,58 @@ function Cadence({
       transition={{ ...fadeUp.transition, delay: 0.2 }}
       className="glass-panel rounded-3xl p-5"
     >
-      <p className="text-[11px] uppercase tracking-[0.18em] text-text-muted font-semibold mb-1">
-        Cadence
-      </p>
-      <h3 className="text-lg font-semibold text-white mb-4">
-        Steps per minute
-      </h3>
-      <div className="h-36">
-        <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={data}>
-            <CartesianGrid stroke="rgba(255,255,255,0.05)" vertical={false} />
-            <XAxis
-              dataKey="label"
-              tick={{ fill: "#71717A", fontSize: 11 }}
-              axisLine={false}
-              tickLine={false}
-            />
-            <YAxis hide domain={[150, 200]} />
-            <Tooltip
-              contentStyle={{
-                background: "rgba(17,17,28,0.95)",
-                border: "1px solid rgba(255,255,255,0.1)",
-                borderRadius: 12,
-                color: "#fff",
-                fontSize: 12,
-              }}
-              formatter={(v) => [`${v} spm`, "Cadence"]}
-            />
-            <Line
-              type="monotone"
-              dataKey="cadence"
-              stroke="#06B6D4"
-              strokeWidth={2.5}
-              dot={{ fill: "#06B6D4", r: 4, strokeWidth: 0 }}
-              activeDot={{ r: 6 }}
-            />
-          </LineChart>
-        </ResponsiveContainer>
+      <div className="flex items-start justify-between mb-1">
+        <div>
+          <p className="text-[11px] uppercase tracking-[0.18em] text-text-muted font-semibold">
+            Recent feelings
+          </p>
+          <h3 className="mt-1 text-lg font-semibold text-white">
+            How each workout felt
+          </h3>
+        </div>
+        <Sparkles className="h-4 w-4 text-accent-purple-bright" />
       </div>
+
+      {rated.length === 0 ? (
+        <p className="mt-3 text-[13px] text-text-secondary leading-relaxed">
+          Your last 10 rated activities will appear here as a row of faces —
+          spot patterns in your training and recovery at a glance.
+        </p>
+      ) : (
+        <div className="mt-4 flex items-end justify-between gap-2 flex-wrap">
+          {rated.map((w) => {
+            const face = faceForRating(w.feelingRating!);
+            const Icon = face.icon;
+            const d = new Date(w.date);
+            const dayLabel = d.toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+            });
+            return (
+              <div
+                key={w.id}
+                className="flex flex-col items-center gap-1 min-w-0"
+              >
+                <div
+                  className="h-10 w-10 rounded-2xl border flex items-center justify-center"
+                  style={{
+                    background: `linear-gradient(135deg, ${face.color}22, ${face.color}08)`,
+                    borderColor: `${face.color}55`,
+                  }}
+                  title={`${face.label} — ${w.title}`}
+                >
+                  <Icon
+                    className="h-5 w-5"
+                    style={{ color: face.color }}
+                    strokeWidth={2.2}
+                  />
+                </div>
+                <span className="text-[9px] text-text-muted">{dayLabel}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </motion.div>
-  );
-}
-
-interface KpiProps {
-  icon: typeof Activity;
-  label: string;
-  value: number;
-  decimals?: number;
-  suffix?: string;
-  accent: string;
-}
-
-function KpiCard({
-  icon: Icon,
-  label,
-  value,
-  decimals,
-  suffix,
-  accent,
-}: KpiProps) {
-  return (
-    <div className="stat-tile p-4">
-      <div className="flex items-center justify-between mb-2">
-        <Icon className="h-4 w-4" style={{ color: accent }} />
-      </div>
-      <div className="text-[11px] uppercase tracking-wider text-text-muted font-medium">
-        {label}
-      </div>
-      <div className="mt-0.5 text-xl font-semibold text-white tabular-nums">
-        <AnimatedCounter
-          value={value}
-          decimals={decimals ?? 0}
-          suffix={suffix ?? ""}
-        />
-      </div>
-    </div>
   );
 }

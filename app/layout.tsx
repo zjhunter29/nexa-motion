@@ -4,6 +4,7 @@ import "./globals.css";
 import { AmbientBackground } from "@/components/ambient-background";
 import { BottomNav } from "@/components/bottom-nav";
 import { OnboardingGate } from "@/components/onboarding-gate";
+import { NotificationsInit } from "@/components/notifications-init";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -41,6 +42,7 @@ export default function RootLayout({
     <html lang="en" className={`${inter.variable} dark`}>
       <body className="min-h-screen bg-background text-text-primary antialiased font-sans">
         <AmbientBackground />
+        <NotificationsInit />
         <OnboardingGate>
           <main className="relative z-10 mx-auto w-full max-w-[480px] min-h-screen">
             {children}

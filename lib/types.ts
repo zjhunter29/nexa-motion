@@ -22,6 +22,8 @@ export interface WorkoutSegment {
   notes?: string;
 }
 
+export type FeelingRating = 1 | 2 | 3 | 4 | 5;
+
 export interface Workout {
   id: string;
   date: string; // YYYY-MM-DD
@@ -36,6 +38,8 @@ export interface Workout {
   motivation?: string;
   cancelReason?: CancelReason;
   completedAt?: number; // unix ms — when "Complete Activity" was tapped
+  /** 1 (rough) → 5 (energized). Captured by the post-workout feeling modal. */
+  feelingRating?: FeelingRating;
 }
 
 export type CancelReason = "sick" | "busy" | "injured" | "weather" | "other";

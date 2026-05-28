@@ -21,10 +21,23 @@ import {
   Check,
   Trash2,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNexaStore } from "@/lib/store";
 import { generatePlan } from "@/lib/plan-generator";
 import { cn } from "@/lib/utils";
+import {
+  getDailyReminderEnabled,
+  getPushEnabled,
+  setDailyReminderEnabled,
+  setPushEnabled,
+  showNotification,
+} from "@/lib/notifications";
+import {
+  isHapticsEnabled,
+  setHapticsEnabled,
+  vibrate,
+  HAPTIC,
+} from "@/lib/haptics";
 import type {
   ActivityLevel,
   Experience,
@@ -37,7 +50,7 @@ interface Row {
   icon: typeof User;
   label: string;
   value?: string;
-  toggle?: { on: boolean; onChange: (v: boolean) => void };
+  toggle?: { on: boolean; onChange: (v: boolean) => void | Promise<void> };
   onClick?: () => void;
   destructive?: boolean;
   accent?: string;
@@ -60,9 +73,55 @@ export function SettingsView() {
   const setPlan = useNexaStore((s) => s.setPlan);
   const clearPlan = useNexaStore((s) => s.clearPlan);
 
-  const [notifs, setNotifs] = useState(true);
-  const [reminders, setReminders] = useState(true);
-  const [hapticEnabled, setHapticEnabled] = useState(true);
+  // Initialize toggle state from localStorage (set by the helpers).
+  const [notifs, setNotifs] = useState(false);
+  const [reminders, setReminders] = useState(false);
+  const [hapticEnabled, setHapticEnabledState] = useState(true);
+
+  useEffect(() => {
+    setNotifs(getPushEnabled());
+    setReminders(getDailyReminderEnabled());
+    setHapticEnabledState(isHapticsEnabled());
+  }, []);
+
+  async function handlePushToggle(next: boolean) {
+    vibrate(HAPTIC.toggle);
+    const ok = await setPushEnabled(next);
+    if (next && !ok) {
+      window.alert(
+        "Couldn't enable notifications. Please allow them in your browser settings, then try again.",
+      );
+      setNotifs(false);
+      return;
+    }
+    setNotifs(next);
+  }
+
+  async function handleReminderToggle(next: boolean) {
+    vibrate(HAPTIC.toggle);
+    const ok = await setDailyReminderEnabled(next);
+    if (next && !ok) {
+      window.alert(
+        "Couldn't enable reminders. Please allow notifications in your browser settings, then try again.",
+      );
+      setReminders(false);
+      return;
+    }
+    setReminders(next);
+    if (next) {
+      // Confirm with a one-off so the user immediately sees it works.
+      await showNotification(
+        "Daily reminder on",
+        "You'll get a nudge each morning around 8 AM.",
+      );
+    }
+  }
+
+  function handleHapticToggle(next: boolean) {
+    setHapticsEnabled(next);
+    setHapticEnabledState(next);
+    if (next) vibrate(HAPTIC.success);
+  }
 
   const [editor, setEditor] = useState<EditorField | null>(null);
 
@@ -211,11 +270,13 @@ export function SettingsView() {
               ? "Imperial (mi)"
               : "Metric (km)",
           accent: "#10B981",
-          onClick: () =>
+          onClick: () => {
+            vibrate(HAPTIC.toggle);
             updateProfile({
               preferredUnits:
                 profile.preferredUnits === "imperial" ? "metric" : "imperial",
-            }),
+            });
+          },
         },
       ],
     },
@@ -225,19 +286,19 @@ export function SettingsView() {
         {
           icon: Bell,
           label: "Push notifications",
-          toggle: { on: notifs, onChange: setNotifs },
+          toggle: { on: notifs, onChange: handlePushToggle },
           accent: "#C084FC",
         },
         {
           icon: Sparkles,
           label: "Daily AI reminder",
-          toggle: { on: reminders, onChange: setReminders },
+          toggle: { on: reminders, onChange: handleReminderToggle },
           accent: "#60A5FA",
         },
         {
           icon: HeartPulse,
           label: "Haptic feedback",
-          toggle: { on: hapticEnabled, onChange: setHapticEnabled },
+          toggle: { on: hapticEnabled, onChange: handleHapticToggle },
           accent: "#EC4899",
         },
       ],
@@ -407,13 +468,13 @@ function Toggle({
   onChange,
 }: {
   on: boolean;
-  onChange: (v: boolean) => void;
+  onChange: (v: boolean) => void | Promise<void>;
 }) {
   return (
     <button
       onClick={(e) => {
         e.stopPropagation();
-        onChange(!on);
+        void onChange(!on);
       }}
       className={cn(
         "relative h-7 w-12 rounded-full transition-colors",

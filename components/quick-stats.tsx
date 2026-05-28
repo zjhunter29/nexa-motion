@@ -4,9 +4,11 @@ import { motion } from "framer-motion";
 import { TrendingUp, Flame, Footprints } from "lucide-react";
 import { AnimatedCounter } from "./animated-counter";
 import { useNexaStore } from "@/lib/store";
+import { useUnits } from "@/lib/use-units";
 
 export function QuickStats() {
   const workouts = useNexaStore((s) => s.workouts);
+  const { distanceValue, distanceUnit } = useUnits();
 
   const completed = workouts.filter((w) => w.status === "completed");
   const weekMiles = completed.reduce(
@@ -26,9 +28,9 @@ export function QuickStats() {
     },
     {
       label: "This week",
-      value: weekMiles,
+      value: distanceValue(weekMiles),
       decimals: 1,
-      suffix: " mi",
+      suffix: ` ${distanceUnit}`,
       icon: TrendingUp,
       color: "#C084FC",
     },

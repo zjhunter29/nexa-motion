@@ -7,6 +7,7 @@ import type {
   CancelReason,
   ChatMessage,
   CompletedRunStats,
+  FeelingRating,
   UserProfile,
   Workout,
 } from "./types";
@@ -29,7 +30,10 @@ interface NexaState {
 
   cancelWorkout: (workoutId: string, reason: CancelReason) => void;
   uncancelWorkout: (workoutId: string) => void;
-  completeWorkout: (workoutId: string, stats?: Partial<CompletedRunStats>) => void;
+  completeWorkout: (
+    workoutId: string,
+    options?: { feelingRating?: FeelingRating; stats?: Partial<CompletedRunStats> },
+  ) => void;
   updateWorkout: (workoutId: string, patch: Partial<Workout>) => void;
 
   pushMessage: (m: ChatMessage) => void;
@@ -121,13 +125,20 @@ export const useNexaStore = create<NexaState>()(
           ),
         })),
 
-      completeWorkout: (workoutId, stats) => {
+      completeWorkout: (workoutId, options) => {
         const w = get().workouts.find((x) => x.id === workoutId);
         if (!w) return;
+        const feelingRating = options?.feelingRating;
+        const stats = options?.stats;
         set((s) => ({
           workouts: s.workouts.map((x) =>
             x.id === workoutId
-              ? { ...x, status: "completed" as const, completedAt: Date.now() }
+              ? {
+                  ...x,
+                  status: "completed" as const,
+                  completedAt: Date.now(),
+                  feelingRating,
+                }
               : x,
           ),
           completedRuns:

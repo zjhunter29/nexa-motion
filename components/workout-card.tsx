@@ -16,9 +16,12 @@ import {
 import { useMemo, useState } from "react";
 import { GlassCard } from "./glass-card";
 import { CancelMenu } from "./cancel-modal";
+import { FeelingRatingModal } from "./feeling-rating-modal";
 import { useNexaStore } from "@/lib/store";
-import { cn, formatDistance } from "@/lib/utils";
-import type { Workout, WorkoutSegment } from "@/lib/types";
+import { cn } from "@/lib/utils";
+import { useUnits } from "@/lib/use-units";
+import { vibrate, HAPTIC } from "@/lib/haptics";
+import type { FeelingRating, Workout, WorkoutSegment } from "@/lib/types";
 
 interface WorkoutCardProps {
   workout: Workout;
@@ -47,6 +50,7 @@ function SegmentRow({
   accent: string;
 }) {
   const Icon = pickIcon(segment.label);
+  const { formatDistance, formatPace } = useUnits();
 
   const lines = useMemo(() => {
     const out: { icon: typeof Icon; text: string }[] = [];
@@ -78,13 +82,14 @@ function SegmentRow({
       out.push({ icon: ActivityIcon, text: `Target HR: ${hr} bpm` });
     }
     if (segment.pace) {
-      out.push({ icon: Timer, text: `Pace: ${segment.pace}/mi` });
+      out.push({ icon: Timer, text: `Pace: ${formatPace(segment.pace)}` });
     }
     if (segment.notes) {
       out.push({ icon: Snowflake, text: segment.notes });
     }
     return out;
-  }, [segment]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [segment, formatDistance, formatPace]);
 
   return (
     <div className="relative">
@@ -120,9 +125,27 @@ function SegmentRow({
 export function WorkoutCard({ workout, variant = "primary" }: WorkoutCardProps) {
   const [cancelOpen, setCancelOpen] = useState(false);
   const [showCancelToast, setShowCancelToast] = useState(false);
+  const [feelingOpen, setFeelingOpen] = useState(false);
   const cancelWorkout = useNexaStore((s) => s.cancelWorkout);
   const uncancelWorkout = useNexaStore((s) => s.uncancelWorkout);
   const completeWorkout = useNexaStore((s) => s.completeWorkout);
+
+  function openFeelingRating() {
+    vibrate(HAPTIC.tap);
+    setFeelingOpen(true);
+  }
+
+  function finishWithRating(rating: FeelingRating) {
+    completeWorkout(workout.id, { feelingRating: rating });
+    vibrate(HAPTIC.success);
+    setFeelingOpen(false);
+  }
+
+  function finishWithoutRating() {
+    completeWorkout(workout.id);
+    vibrate(HAPTIC.success);
+    setFeelingOpen(false);
+  }
 
   const isCancelled = workout.status === "cancelled";
   const isCompleted = workout.status === "completed";
@@ -265,9 +288,7 @@ export function WorkoutCard({ workout, variant = "primary" }: WorkoutCardProps) 
           <motion.button
             whileTap={{ scale: 0.97 }}
             whileHover={{ y: -1 }}
-            onClick={() => {
-              completeWorkout(workout.id);
-            }}
+            onClick={openFeelingRating}
             className="btn-primary w-full mt-6 py-3.5 inline-flex items-center justify-center gap-2 font-semibold text-[14px]"
           >
             <Check className="h-4 w-4" strokeWidth={3} />
@@ -275,6 +296,17 @@ export function WorkoutCard({ workout, variant = "primary" }: WorkoutCardProps) 
           </motion.button>
         )}
       </GlassCard>
+
+      <AnimatePresence>
+        {feelingOpen && (
+          <FeelingRatingModal
+            workoutTitle={workout.title}
+            onSubmit={finishWithRating}
+            onSkip={finishWithoutRating}
+            onClose={() => setFeelingOpen(false)}
+          />
+        )}
+      </AnimatePresence>
 
       <AnimatePresence>
         {cancelOpen && (
