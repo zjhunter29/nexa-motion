@@ -50,6 +50,19 @@ export function dateKey(date: Date): string {
   return `${y}-${m}-${d}`;
 }
 
+/**
+ * Inverse of dateKey — parse a "YYYY-MM-DD" string as a *local* Date.
+ *
+ * Using `new Date("2026-05-28")` is a footgun: it parses as UTC midnight,
+ * which in any timezone west of UTC reads back as the *previous* day when
+ * you call toLocaleDateString. Always use this helper for stored workout
+ * dates.
+ */
+export function parseDateKey(key: string): Date {
+  const [y, m, d] = key.split("-").map(Number);
+  return new Date(y, (m ?? 1) - 1, d ?? 1);
+}
+
 export function getGreeting(date: Date = new Date()): string {
   const h = date.getHours();
   if (h < 5) return "Burning the midnight oil";

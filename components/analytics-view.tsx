@@ -25,6 +25,7 @@ import { AnimatedCounter } from "./animated-counter";
 import { useMemo } from "react";
 import { FEELING_SCALE, faceForAverage, faceForRating } from "@/lib/feelings";
 import { useUnits } from "@/lib/use-units";
+import { parseDateKey } from "@/lib/utils";
 import type { Workout } from "@/lib/types";
 
 const fadeUp = {
@@ -437,7 +438,7 @@ function FeelingTrend({ workouts }: { workouts: Workout[] }) {
             {rated.map((w) => {
               const face = faceForRating(w.feelingRating!);
               const Icon = face.icon;
-              const d = new Date(w.date);
+              const d = parseDateKey(w.date);
               const dayLabel = d.toLocaleDateString("en-US", {
                 month: "short",
                 day: "numeric",

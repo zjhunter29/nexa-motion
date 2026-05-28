@@ -18,7 +18,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useNexaStore } from "@/lib/store";
 import type { Workout, WorkoutType } from "@/lib/types";
-import { cn, dateKey } from "@/lib/utils";
+import { cn, dateKey, parseDateKey } from "@/lib/utils";
 import { useUnits } from "@/lib/use-units";
 
 const TYPE_META: Record<
@@ -285,7 +285,7 @@ function DayDetail({ workout }: { workout: Workout }) {
   const meta = TYPE_META[workout.type];
   const Icon = meta.icon;
   const { formatDistance, formatPace } = useUnits();
-  const d = new Date(workout.date);
+  const d = parseDateKey(workout.date);
   const dateLabel = d.toLocaleDateString("en-US", {
     weekday: "long",
     month: "long",
@@ -379,7 +379,7 @@ function Stat({
 }
 
 function EmptyDay({ dateString }: { dateString: string }) {
-  const d = new Date(dateString);
+  const d = parseDateKey(dateString);
   const dateLabel = d.toLocaleDateString("en-US", {
     weekday: "long",
     month: "long",
