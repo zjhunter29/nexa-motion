@@ -1,6 +1,6 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   Area,
   AreaChart,
@@ -18,14 +18,18 @@ import {
   BarChart3,
   Sparkles,
   Heart,
+  Plus,
+  PenLine,
 } from "lucide-react";
 import Link from "next/link";
 import { useNexaStore } from "@/lib/store";
 import { AnimatedCounter } from "./animated-counter";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { FEELING_SCALE, faceForAverage, faceForRating } from "@/lib/feelings";
 import { useUnits } from "@/lib/use-units";
 import { parseDateKey } from "@/lib/utils";
+import { CreateWorkoutModal } from "./create-workout-modal";
+import { vibrate, HAPTIC } from "@/lib/haptics";
 import type { Workout } from "@/lib/types";
 
 const fadeUp = {
@@ -39,31 +43,65 @@ export function AnalyticsView() {
   const workouts = useNexaStore((s) => s.workouts);
   const hasGeneratedPlan = useNexaStore((s) => s.profile.hasGeneratedPlan);
   const { distanceValue, distanceUnit } = useUnits();
+  const [createOpen, setCreateOpen] = useState(false);
 
   const totalDistanceDisplay = useMemo(
     () => distanceValue(completedRuns.reduce((a, r) => a + r.distance, 0)),
     [completedRuns, distanceValue],
   );
 
+  const customWorkoutCount = useMemo(
+    () => workouts.filter((w) => w.customWorkout).length,
+    [workouts],
+  );
+
   const hasData = completedRuns.length > 0;
+
+  function openCreate() {
+    vibrate(HAPTIC.tap);
+    setCreateOpen(true);
+  }
+
+  const buttonRow = (
+    <CustomWorkoutButtonRow
+      onClick={openCreate}
+      count={customWorkoutCount}
+    />
+  );
+
+  const modalMount = (
+    <AnimatePresence>
+      {createOpen && (
+        <CreateWorkoutModal onClose={() => setCreateOpen(false)} />
+      )}
+    </AnimatePresence>
+  );
 
   if (!hasGeneratedPlan && completedRuns.length === 0) {
     return (
-      <AnalyticsEmptyState
-        title="No data yet"
-        body="Generate your first plan and complete a workout — analytics will start populating from your real activity."
-        ctaLabel="Create my first plan"
-      />
+      <>
+        <AnalyticsEmptyState
+          title="No data yet"
+          body="Generate your first plan and complete a workout — analytics will start populating from your real activity."
+          ctaLabel="Create my first plan"
+          buttonRow={buttonRow}
+        />
+        {modalMount}
+      </>
     );
   }
 
   if (!hasData) {
     return (
-      <AnalyticsEmptyState
-        title="Complete your first workout"
-        body="Your charts will populate the moment you mark an activity complete. Pace, distance, and how you felt — all driven by your real data."
-        ctaLabel="View today's workout"
-      />
+      <>
+        <AnalyticsEmptyState
+          title="Complete your first workout"
+          body="Your charts will populate the moment you mark an activity complete. Pace, distance, and how you felt — all driven by your real data."
+          ctaLabel="View today's workout"
+          buttonRow={buttonRow}
+        />
+        {modalMount}
+      </>
     );
   }
 
@@ -77,6 +115,9 @@ export function AnalyticsView() {
           Analytics
         </h1>
       </motion.header>
+
+      {buttonRow}
+      {modalMount}
 
       {/* Single hero KPI — total distance only */}
       <motion.div
@@ -114,10 +155,12 @@ function AnalyticsEmptyState({
   title,
   body,
   ctaLabel,
+  buttonRow,
 }: {
   title: string;
   body: string;
   ctaLabel: string;
+  buttonRow?: React.ReactNode;
 }) {
   return (
     <div className="safe-top safe-bottom px-5">
@@ -129,6 +172,8 @@ function AnalyticsEmptyState({
           Analytics
         </h1>
       </header>
+
+      {buttonRow && <div className="mb-4">{buttonRow}</div>}
 
       <motion.div
         initial={{ opacity: 0, y: 10 }}
@@ -151,6 +196,44 @@ function AnalyticsEmptyState({
         </Link>
       </motion.div>
     </div>
+  );
+}
+
+function CustomWorkoutButtonRow({
+  onClick,
+  count,
+}: {
+  onClick: () => void;
+  count: number;
+}) {
+  return (
+    <motion.div
+      {...fadeUp}
+      transition={{ ...fadeUp.transition, delay: 0.02 }}
+      className="flex items-stretch gap-2.5"
+    >
+      <motion.button
+        whileTap={{ scale: 0.97 }}
+        whileHover={{ y: -1 }}
+        onClick={onClick}
+        className="btn-primary flex-1 py-3 inline-flex items-center justify-center gap-2 font-semibold text-[13.5px]"
+      >
+        <PenLine className="h-4 w-4" />
+        Create Custom Workout
+      </motion.button>
+      <div
+        className="stat-tile px-3 py-3 shrink-0 flex flex-col items-center justify-center min-w-[80px]"
+        title="Custom workouts created"
+      >
+        <Plus className="h-3.5 w-3.5 text-accent-purple-bright mb-1" />
+        <div className="text-[10px] uppercase tracking-wider text-text-muted font-medium leading-none">
+          Custom
+        </div>
+        <div className="mt-1 text-base font-semibold text-white tabular-nums leading-none">
+          <AnimatedCounter value={count} />
+        </div>
+      </div>
+    </motion.div>
   );
 }
 

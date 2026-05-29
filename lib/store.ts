@@ -12,6 +12,14 @@ import type {
   Workout,
 } from "./types";
 import { ACHIEVEMENT_CATALOGUE } from "./sample-data";
+import { buildCustomWorkout, findNextAvailableDate } from "./custom-workout";
+
+export interface PendingReview {
+  /** What the user originally typed in the modal. */
+  original: string;
+  /** Latest AI revision, captured once the assistant responds. */
+  revised?: string;
+}
 
 interface NexaState {
   profile: UserProfile;
@@ -38,6 +46,13 @@ interface NexaState {
 
   pushMessage: (m: ChatMessage) => void;
   resetChat: () => void;
+
+  // Custom workouts
+  pendingReview: PendingReview | null;
+  setPendingReview: (r: PendingReview | null) => void;
+  setPendingReviewRevised: (revised: string) => void;
+  /** Schedules a custom workout on the next available date. Returns the date. */
+  addCustomWorkout: (text: string) => string;
 }
 
 const defaultProfile: UserProfile = {
@@ -163,6 +178,31 @@ export const useNexaStore = create<NexaState>()(
         set((s) => ({ chatMessages: [...s.chatMessages, m] })),
 
       resetChat: () => set({ chatMessages: [] }),
+
+      pendingReview: null,
+      setPendingReview: (r) => set({ pendingReview: r }),
+      setPendingReviewRevised: (revised) =>
+        set((s) =>
+          s.pendingReview
+            ? { pendingReview: { ...s.pendingReview, revised } }
+            : {},
+        ),
+
+      addCustomWorkout: (text) => {
+        const { workouts } = get();
+        const slot = findNextAvailableDate(workouts);
+        const workout = buildCustomWorkout(text, slot.date);
+        set((s) => ({
+          workouts: slot.replacesId
+            ? s.workouts.map((w) =>
+                w.id === slot.replacesId ? workout : w,
+              )
+            : [...s.workouts, workout].sort((a, b) =>
+                a.date.localeCompare(b.date),
+              ),
+        }));
+        return slot.date;
+      },
     }),
     {
       name: "nexa-motion-state",

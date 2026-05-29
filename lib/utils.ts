@@ -75,3 +75,9 @@ export function getGreeting(date: Date = new Date()): string {
 export function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
 }
+
+/** Stable, collision-resistant short ID for client-side records. */
+export function makeId(prefix?: string): string {
+  const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  return prefix ? `${prefix}-${id}` : id;
+}

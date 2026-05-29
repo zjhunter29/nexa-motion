@@ -40,6 +40,8 @@ export interface Workout {
   completedAt?: number; // unix ms — when "Complete Activity" was tapped
   /** 1 (rough) → 5 (energized). Captured by the post-workout feeling modal. */
   feelingRating?: FeelingRating;
+  /** True for workouts the user created via the "Create Custom Workout" flow. */
+  customWorkout?: boolean;
 }
 
 export type CancelReason = "sick" | "busy" | "injured" | "weather" | "other";
