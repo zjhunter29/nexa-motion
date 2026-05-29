@@ -12,7 +12,9 @@ import {
   Activity as ActivityIcon,
   CheckCircle2,
   CalendarX,
+  Share2,
 } from "lucide-react";
+import { ShareModal } from "./share-cards/share-modal";
 import { useMemo, useState } from "react";
 import { GlassCard } from "./glass-card";
 import { CancelMenu } from "./cancel-modal";
@@ -126,6 +128,7 @@ export function WorkoutCard({ workout, variant = "primary" }: WorkoutCardProps) 
   const [cancelOpen, setCancelOpen] = useState(false);
   const [showCancelToast, setShowCancelToast] = useState(false);
   const [feelingOpen, setFeelingOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
   const cancelWorkout = useNexaStore((s) => s.cancelWorkout);
   const uncancelWorkout = useNexaStore((s) => s.uncancelWorkout);
   const completeWorkout = useNexaStore((s) => s.completeWorkout);
@@ -215,6 +218,20 @@ export function WorkoutCard({ workout, variant = "primary" }: WorkoutCardProps) 
             </h3>
           </div>
           <div className="flex items-center gap-1.5">
+            {!isCancelled && (
+              <motion.button
+                whileTap={{ scale: 0.92 }}
+                whileHover={{ scale: 1.04 }}
+                onClick={() => {
+                  vibrate(HAPTIC.tap);
+                  setShareOpen(true);
+                }}
+                className="glass-pill h-9 w-9 rounded-full inline-flex items-center justify-center text-text-secondary hover:text-white"
+                aria-label="Share workout"
+              >
+                <Share2 className="h-4 w-4" />
+              </motion.button>
+            )}
             {isCancelled ? (
               <motion.button
                 whileTap={{ scale: 0.92 }}
@@ -305,6 +322,12 @@ export function WorkoutCard({ workout, variant = "primary" }: WorkoutCardProps) 
             onSkip={finishWithoutRating}
             onClose={() => setFeelingOpen(false)}
           />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {shareOpen && (
+          <ShareModal workout={workout} onClose={() => setShareOpen(false)} />
         )}
       </AnimatePresence>
 

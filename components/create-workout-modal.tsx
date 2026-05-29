@@ -11,25 +11,42 @@ import {
   ArrowLeft,
   PenLine,
   MessageCircle,
+  Layers,
 } from "lucide-react";
 import { useNexaStore } from "@/lib/store";
 import { vibrate, HAPTIC } from "@/lib/haptics";
 import { cn, parseDateKey } from "@/lib/utils";
+import { WorkoutBuilder } from "./workout-builder/workout-builder";
 
 interface CreateWorkoutModalProps {
   onClose: () => void;
 }
 
 type Stage = "input" | "choice" | "scheduled";
+type Mode = "quick" | "builder";
 
 export function CreateWorkoutModal({ onClose }: CreateWorkoutModalProps) {
   const router = useRouter();
   const addCustomWorkout = useNexaStore((s) => s.addCustomWorkout);
   const setPendingReview = useNexaStore((s) => s.setPendingReview);
 
+  const [mode, setMode] = useState<Mode>("quick");
   const [stage, setStage] = useState<Stage>("input");
   const [text, setText] = useState("");
   const [scheduledDate, setScheduledDate] = useState<string | null>(null);
+
+  if (mode === "builder") {
+    return (
+      <WorkoutBuilder
+        onClose={onClose}
+        onScheduled={(date) => {
+          setScheduledDate(date);
+          setMode("quick");
+          setStage("scheduled");
+        }}
+      />
+    );
+  }
 
   function submit() {
     if (text.trim().length === 0) return;
@@ -75,6 +92,7 @@ export function CreateWorkoutModal({ onClose }: CreateWorkoutModalProps) {
               onChange={setText}
               onSubmit={submit}
               onClose={onClose}
+              onOpenBuilder={() => setMode("builder")}
             />
           )}
           {stage === "choice" && (
@@ -107,11 +125,13 @@ function InputStage({
   onChange,
   onSubmit,
   onClose,
+  onOpenBuilder,
 }: {
   text: string;
   onChange: (v: string) => void;
   onSubmit: () => void;
   onClose: () => void;
+  onOpenBuilder: () => void;
 }) {
   return (
     <motion.div
@@ -139,8 +159,15 @@ function InputStage({
       </div>
 
       <p className="text-[13px] text-text-secondary mt-1 leading-relaxed">
-        Type or paste your workout plan. You can structure it any way that
-        makes sense — segments, intervals, prose. Markdown is fine.
+        Type or paste your workout plan. Markdown is fine. Want structured
+        fields instead?{" "}
+        <button
+          onClick={onOpenBuilder}
+          className="text-accent-purple-bright hover:underline font-semibold inline-flex items-center gap-1"
+        >
+          <Layers className="h-3 w-3" />
+          Open Builder
+        </button>
       </p>
 
       <div className="mt-4 relative">

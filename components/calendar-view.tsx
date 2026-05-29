@@ -13,6 +13,8 @@ import {
   Trophy,
   Moon,
   CalendarPlus,
+  CalendarDays,
+  Workflow,
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import Link from "next/link";
@@ -20,6 +22,8 @@ import { useNexaStore } from "@/lib/store";
 import type { Workout, WorkoutType } from "@/lib/types";
 import { cn, dateKey, parseDateKey } from "@/lib/utils";
 import { useUnits } from "@/lib/use-units";
+import { FlowView } from "./workout-flow/flow-view";
+import { vibrate, HAPTIC } from "@/lib/haptics";
 
 const TYPE_META: Record<
   WorkoutType,
@@ -45,6 +49,7 @@ export function CalendarView() {
     return d;
   });
   const [selected, setSelected] = useState<string>(() => dateKey(new Date()));
+  const [view, setView] = useState<"calendar" | "flow">("calendar");
 
   const monthLabel = cursor.toLocaleDateString("en-US", {
     month: "long",
@@ -72,7 +77,7 @@ export function CalendarView() {
 
   return (
     <div className="safe-top safe-bottom">
-      <header className="flex items-center justify-between px-5 pb-4">
+      <header className="flex items-center justify-between px-5 pb-3">
         <div>
           <p className="text-[11px] uppercase tracking-[0.22em] text-text-muted font-medium">
             History &amp; schedule
@@ -88,6 +93,88 @@ export function CalendarView() {
           </span>
         </div>
       </header>
+
+      {/* Calendar / Flow toggle */}
+      <div className="px-5 pb-4">
+        <div className="glass-pill rounded-full p-1 inline-flex items-center w-full">
+          {([
+            { id: "calendar", label: "Calendar", icon: CalendarDays },
+            { id: "flow", label: "Flow", icon: Workflow },
+          ] as const).map((opt) => {
+            const active = view === opt.id;
+            const Icon = opt.icon;
+            return (
+              <motion.button
+                key={opt.id}
+                whileTap={{ scale: 0.96 }}
+                onClick={() => {
+                  vibrate(HAPTIC.toggle);
+                  setView(opt.id);
+                }}
+                className={cn(
+                  "relative flex-1 py-2 rounded-full text-[12px] font-semibold inline-flex items-center justify-center gap-1.5 transition-colors",
+                  active ? "text-white" : "text-text-secondary",
+                )}
+              >
+                {active && (
+                  <motion.span
+                    layoutId="cal-flow-pill"
+                    className="absolute inset-0 rounded-full bg-gradient-to-br from-accent-purple/40 to-accent-blue/30 border border-white/15 shadow-glow-purple"
+                    transition={{ type: "spring", stiffness: 400, damping: 32 }}
+                  />
+                )}
+                <Icon className="h-3.5 w-3.5 relative z-10" />
+                <span className="relative z-10">{opt.label}</span>
+              </motion.button>
+            );
+          })}
+        </div>
+      </div>
+
+      {view === "flow" ? (
+        <div className="px-5">
+          <FlowView workouts={workouts} />
+        </div>
+      ) : (
+        <CalendarBody
+          cursor={cursor}
+          setCursor={setCursor}
+          selected={selected}
+          setSelected={setSelected}
+          workoutByDate={workoutByDate}
+          selectedWorkout={selectedWorkout}
+          days={days}
+        />
+      )}
+    </div>
+  );
+}
+
+function CalendarBody({
+  cursor,
+  setCursor,
+  selected,
+  setSelected,
+  workoutByDate,
+  selectedWorkout,
+  days,
+}: {
+  cursor: Date;
+  setCursor: React.Dispatch<React.SetStateAction<Date>>;
+  selected: string;
+  setSelected: React.Dispatch<React.SetStateAction<string>>;
+  workoutByDate: Map<string, Workout>;
+  selectedWorkout: Workout | undefined;
+  days: { day: number; key: string; inMonth: boolean }[];
+}) {
+  const monthLabel = cursor.toLocaleDateString("en-US", {
+    month: "long",
+    year: "numeric",
+  });
+
+  return (
+    <>
+      {/* (the existing month grid + day detail + legend follow) */}
 
       <div className="mx-5 mb-4 glass-panel rounded-3xl p-4">
         <div className="flex items-center justify-between mb-3">
@@ -219,7 +306,7 @@ export function CalendarView() {
           ))}
         </div>
       </div>
-    </div>
+    </>
   );
 }
 
