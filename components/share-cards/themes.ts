@@ -79,7 +79,6 @@ export interface ShareContentToggles {
   showDuration: boolean;
   showDifficulty: boolean;
   showGoal: boolean;
-  showBranding: boolean;
 }
 
 export const DEFAULT_TOGGLES: ShareContentToggles = {
@@ -88,5 +87,4 @@ export const DEFAULT_TOGGLES: ShareContentToggles = {
   showDuration: true,
   showDifficulty: true,
   showGoal: true,
-  showBranding: true,
 };

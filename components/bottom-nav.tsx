@@ -25,9 +25,13 @@ export function BottomNav() {
   const pathname = usePathname();
   const onboarded = useNexaStore((s) => s.profile.onboarded);
   const hydrated = useNexaStore((s) => s.hydrated);
+  const shareModalOpen = useNexaStore((s) => s.shareModalOpen);
 
   if (!hydrated || !onboarded) return null;
   if (pathname?.startsWith("/onboarding")) return null;
+  // Hide when the share modal is open so the user can see the full preview
+  // and footer actions without the floating nav covering them.
+  if (shareModalOpen) return null;
 
   return (
     <nav

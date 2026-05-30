@@ -53,6 +53,11 @@ interface NexaState {
   setPendingReviewRevised: (revised: string) => void;
   /** Schedules a custom workout on the next available date. Returns the date. */
   addCustomWorkout: (text: string) => string;
+
+  // Transient UI flags (not persisted)
+  /** When true, the floating bottom nav hides so the share preview is unobstructed. */
+  shareModalOpen: boolean;
+  setShareModalOpen: (v: boolean) => void;
 }
 
 const defaultProfile: UserProfile = {
@@ -203,6 +208,10 @@ export const useNexaStore = create<NexaState>()(
         }));
         return slot.date;
       },
+
+      // Transient — not persisted via partialize, so it resets per session.
+      shareModalOpen: false,
+      setShareModalOpen: (v) => set({ shareModalOpen: v }),
     }),
     {
       name: "nexa-motion-state",

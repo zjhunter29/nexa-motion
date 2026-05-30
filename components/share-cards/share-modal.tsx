@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   X,
   Download,
@@ -14,6 +14,7 @@ import { toPng } from "html-to-image";
 import type { Workout } from "@/lib/types";
 import { vibrate, HAPTIC } from "@/lib/haptics";
 import { cn } from "@/lib/utils";
+import { useNexaStore } from "@/lib/store";
 import {
   THEMES,
   ASPECTS,
@@ -38,7 +39,6 @@ const TOGGLE_LABELS: {
   { key: "showSets", label: "Sets / reps" },
   { key: "showDifficulty", label: "Difficulty badge" },
   { key: "showGoal", label: "Focus" },
-  { key: "showBranding", label: "Nexa branding" },
 ];
 
 export function ShareModal({ workout, onClose }: ShareModalProps) {
@@ -49,6 +49,14 @@ export function ShareModal({ workout, onClose }: ShareModalProps) {
   const [linkState, setLinkState] = useState<"idle" | "done">("idle");
   const [busy, setBusy] = useState(false);
   const artRef = useRef<HTMLDivElement>(null);
+
+  // Tell the bottom nav to hide for the duration of this modal so the user
+  // can see the full preview + footer actions unobstructed.
+  const setShareModalOpen = useNexaStore((s) => s.setShareModalOpen);
+  useEffect(() => {
+    setShareModalOpen(true);
+    return () => setShareModalOpen(false);
+  }, [setShareModalOpen]);
 
   const previewScale = useMemo(() => {
     // Render at low scale into the preview pane; export at 1.0.
@@ -61,23 +69,30 @@ export function ShareModal({ workout, onClose }: ShareModalProps) {
     setToggles((t) => ({ ...t, [key]: !t[key] }));
   }
 
+  async function captureDataUrl(): Promise<string> {
+    const aspectMeta = ASPECTS.find((a) => a.id === aspect)!;
+    // Make sure embedded <img> elements (logo) have loaded before rasterizing
+    // — otherwise html-to-image captures a blank or missing-image frame.
+    await waitForImages(artRef.current!);
+    return toPng(artRef.current!, {
+      cacheBust: true,
+      pixelRatio: 1,
+      width: aspectMeta.width,
+      height: aspectMeta.height,
+      style: {
+        // Override the preview-only scale transform on export.
+        transform: "scale(1)",
+        transformOrigin: "top left",
+      },
+    });
+  }
+
   async function exportPng() {
     if (!artRef.current || busy) return;
     setBusy(true);
     vibrate(HAPTIC.select);
     try {
-      const aspectMeta = ASPECTS.find((a) => a.id === aspect)!;
-      const dataUrl = await toPng(artRef.current, {
-        cacheBust: true,
-        pixelRatio: 1,
-        width: aspectMeta.width,
-        height: aspectMeta.height,
-        style: {
-          // Override the preview-only scale transform on export.
-          transform: "scale(1)",
-          transformOrigin: "top left",
-        },
-      });
+      const dataUrl = await captureDataUrl();
       const link = document.createElement("a");
       link.href = dataUrl;
       link.download = `nexa-motion-${slugify(workout.title)}-${aspect}.png`;
@@ -95,14 +110,7 @@ export function ShareModal({ workout, onClose }: ShareModalProps) {
     setBusy(true);
     vibrate(HAPTIC.tap);
     try {
-      const aspectMeta = ASPECTS.find((a) => a.id === aspect)!;
-      const dataUrl = await toPng(artRef.current, {
-        cacheBust: true,
-        pixelRatio: 1,
-        width: aspectMeta.width,
-        height: aspectMeta.height,
-        style: { transform: "scale(1)", transformOrigin: "top left" },
-      });
+      const dataUrl = await captureDataUrl();
       const blob = await (await fetch(dataUrl)).blob();
       if (
         typeof navigator !== "undefined" &&
@@ -434,4 +442,31 @@ function slugify(s: string) {
     .replace(/[^\w\s-]/g, "")
     .replace(/\s+/g, "-")
     .replace(/-+/g, "-");
+}
+
+/**
+ * Resolve once every <img> descendant has finished loading (or errored).
+ * html-to-image rasterizes synchronously — if the logo PNG hasn't decoded
+ * yet, the export ends up with a blank or broken image slot.
+ */
+async function waitForImages(node: HTMLElement): Promise<void> {
+  const imgs = Array.from(node.querySelectorAll("img"));
+  await Promise.all(
+    imgs.map(
+      (img) =>
+        new Promise<void>((resolve) => {
+          if (img.complete && img.naturalWidth > 0) return resolve();
+          const done = () => {
+            img.removeEventListener("load", done);
+            img.removeEventListener("error", done);
+            resolve();
+          };
+          img.addEventListener("load", done, { once: true });
+          img.addEventListener("error", done, { once: true });
+        }),
+    ),
+  );
+  // One additional frame so the decoded bitmap is fully committed to the DOM
+  // before html-to-image starts traversing.
+  await new Promise<void>((r) => requestAnimationFrame(() => r()));
 }

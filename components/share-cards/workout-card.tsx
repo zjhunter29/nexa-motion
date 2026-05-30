@@ -95,7 +95,7 @@ export const WorkoutCardArt = forwardRef<HTMLDivElement, WorkoutCardArtProps>(
             </>
           )}
 
-          {/* Header row */}
+          {/* Header row — branding is mandatory */}
           <div
             style={{
               display: "flex",
@@ -106,37 +106,40 @@ export const WorkoutCardArt = forwardRef<HTMLDivElement, WorkoutCardArtProps>(
             }}
           >
             <div style={{ display: "flex", alignItems: "center", gap: dim.width * 0.02 }}>
-              {toggles.showBranding && (
-                <div
+              <div
+                style={{
+                  width: dim.width * 0.08,
+                  height: dim.width * 0.08,
+                  borderRadius: dim.width * 0.018,
+                  overflow: "hidden",
+                  background: "#000",
+                  border: `1px solid ${palette.divider}`,
+                }}
+              >
+                {/* Real Nexa Motion logo */}
+                <img
+                  src="/nexa-logo.png"
+                  alt=""
+                  crossOrigin="anonymous"
                   style={{
-                    width: dim.width * 0.08,
-                    height: dim.width * 0.08,
-                    borderRadius: dim.width * 0.018,
-                    background: "#000",
-                    border: `1px solid ${palette.divider}`,
-                    overflow: "hidden",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
+                    width: "100%",
+                    height: "100%",
+                    display: "block",
+                    objectFit: "cover",
                   }}
-                >
-                  {/* Inline N mark */}
-                  <NexaMark size={dim.width * 0.06} accent={palette.accent} />
-                </div>
-              )}
-              {toggles.showBranding && (
-                <span
-                  style={{
-                    fontSize: dim.width * 0.022,
-                    fontWeight: 600,
-                    letterSpacing: "0.18em",
-                    textTransform: "uppercase",
-                    opacity: 0.7,
-                  }}
-                >
-                  Nexa Motion
-                </span>
-              )}
+                />
+              </div>
+              <span
+                style={{
+                  fontSize: dim.width * 0.022,
+                  fontWeight: 600,
+                  letterSpacing: "0.18em",
+                  textTransform: "uppercase",
+                  opacity: 0.7,
+                }}
+              >
+                Nexa Motion
+              </span>
             </div>
 
             {toggles.showDifficulty && (
@@ -274,43 +277,41 @@ export const WorkoutCardArt = forwardRef<HTMLDivElement, WorkoutCardArtProps>(
             </div>
           )}
 
-          {/* Footer */}
-          {toggles.showBranding && (
-            <div
+          {/* Footer — branding is mandatory */}
+          <div
+            style={{
+              marginTop: "auto",
+              paddingTop: dim.width * 0.04,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              position: "relative",
+            }}
+          >
+            <span
               style={{
-                marginTop: "auto",
-                paddingTop: dim.width * 0.04,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                position: "relative",
+                fontSize: dim.width * 0.018,
+                opacity: 0.55,
+                letterSpacing: "0.16em",
+                textTransform: "uppercase",
+                fontWeight: 600,
               }}
             >
-              <span
-                style={{
-                  fontSize: dim.width * 0.018,
-                  opacity: 0.55,
-                  letterSpacing: "0.16em",
-                  textTransform: "uppercase",
-                  fontWeight: 600,
-                }}
-              >
-                nexa-motion.vercel.app
-              </span>
-              <span
-                style={{
-                  fontSize: dim.width * 0.018,
-                  opacity: 0.55,
-                  letterSpacing: "0.16em",
-                  textTransform: "uppercase",
-                  fontWeight: 600,
-                  color: palette.accent,
-                }}
-              >
-                Built with Nexa Coach
-              </span>
-            </div>
-          )}
+              nexa-motion.vercel.app
+            </span>
+            <span
+              style={{
+                fontSize: dim.width * 0.018,
+                opacity: 0.55,
+                letterSpacing: "0.16em",
+                textTransform: "uppercase",
+                fontWeight: 600,
+                color: palette.accent,
+              }}
+            >
+              Built with Nexa Coach
+            </span>
+          </div>
         </div>
 
         {/* Fix outer scale wrap so outline matches scaled height */}
@@ -401,24 +402,6 @@ function DifficultyBadge({
     >
       {label}
     </div>
-  );
-}
-
-function NexaMark({ size, accent }: { size: number; accent: string }) {
-  // A stylized N glyph, scaled to the icon container.
-  return (
-    <svg width={size} height={size} viewBox="0 0 100 100">
-      <defs>
-        <linearGradient id="nm-share-grad" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#C084FC" />
-          <stop offset="1" stopColor={accent} />
-        </linearGradient>
-      </defs>
-      <path
-        d="M 72,8 L 82,18 L 70,72 L 58,54 L 30,92 L 18,82 L 30,28 L 42,46 Z"
-        fill="url(#nm-share-grad)"
-      />
-    </svg>
   );
 }
 
