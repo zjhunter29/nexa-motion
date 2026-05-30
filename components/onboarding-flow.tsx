@@ -22,10 +22,12 @@ import type {
   ActivityLevel,
   Experience,
   FitnessLevel,
+  KnownPaces,
   RunningGoal,
   UserProfile,
 } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { PACE_FIELDS, parsePaceInput } from "@/lib/physiology";
 
 interface DraftProfile {
   name: string;
@@ -39,9 +41,11 @@ interface DraftProfile {
   activityLevel: ActivityLevel;
   trainingDays: number[];
   injuryHistory: string[];
+  /** Raw text the user typed for each pace (validated on submit). */
+  paceInputs: Record<keyof KnownPaces, string>;
 }
 
-const TOTAL_STEPS = 9;
+const TOTAL_STEPS = 10;
 
 export function OnboardingFlow() {
   const router = useRouter();
@@ -59,10 +63,22 @@ export function OnboardingFlow() {
     activityLevel: "moderate",
     trainingDays: [1, 3, 5],
     injuryHistory: [],
+    paceInputs: {
+      easy: "",
+      long: "",
+      tempo: "",
+      threshold: "",
+      interval: "",
+    },
   });
 
   function next() {
     if (step === TOTAL_STEPS - 1) {
+      const knownPaces: KnownPaces = {};
+      for (const f of PACE_FIELDS) {
+        const parsed = parsePaceInput(draft.paceInputs[f.key]);
+        if (parsed) knownPaces[f.key] = parsed;
+      }
       const profilePatch: Partial<UserProfile> = {
         name: draft.name.trim() || "Runner",
         age: draft.age ?? undefined,
@@ -77,6 +93,7 @@ export function OnboardingFlow() {
         activityLevel: draft.activityLevel,
         trainingDays: draft.trainingDays,
         injuryHistory: draft.injuryHistory,
+        knownPaces,
       };
       completeOnboarding(profilePatch);
       router.push("/");
@@ -108,9 +125,10 @@ export function OnboardingFlow() {
           draft.weightLb >= 60 &&
           draft.weightLb <= 500
         );
-      case 8:
+      case 9:
         return draft.trainingDays.length > 0;
       default:
+        // All other steps (including the optional paces step) advance freely.
         return true;
     }
   })();
@@ -182,6 +200,12 @@ export function OnboardingFlow() {
             />
           )}
           {step === 7 && (
+            <PacesStep
+              value={draft.paceInputs}
+              onChange={(paceInputs) => setDraft({ ...draft, paceInputs })}
+            />
+          )}
+          {step === 8 && (
             <InjuriesStep
               value={draft.injuryHistory}
               onChange={(injuryHistory) =>
@@ -189,7 +213,7 @@ export function OnboardingFlow() {
               }
             />
           )}
-          {step === 8 && (
+          {step === 9 && (
             <DaysStep
               value={draft.trainingDays}
               onChange={(trainingDays) =>
@@ -591,6 +615,71 @@ const INJURY_OPTIONS = [
   "Lower back",
   "Shin splints",
 ];
+
+function PacesStep({
+  value,
+  onChange,
+}: {
+  value: Record<keyof KnownPaces, string>;
+  onChange: (v: Record<keyof KnownPaces, string>) => void;
+}) {
+  function set(key: keyof KnownPaces, v: string) {
+    onChange({ ...value, [key]: v });
+  }
+
+  return (
+    <div className="flex-1 flex flex-col justify-center">
+      <StepHeader
+        eyebrow="Your paces"
+        title="Know any of your race paces?"
+        sub="Totally optional — most runners don't, and that's fine. We'll calibrate from your age, weight, and fitness level if you skip. If you do know some, we'll use them directly."
+      />
+
+      <div className="mt-6 space-y-3 max-h-[50vh] overflow-y-auto no-scrollbar pr-1">
+        {PACE_FIELDS.map((f) => {
+          const raw = value[f.key];
+          const parsed = parsePaceInput(raw);
+          const hasInput = raw.trim().length > 0;
+          return (
+            <div key={f.key}>
+              <div className="flex items-baseline justify-between mb-1.5">
+                <span className="text-[13px] font-semibold text-white">
+                  {f.label}
+                </span>
+                {hasInput && (
+                  <span
+                    className={cn(
+                      "text-[10px] uppercase tracking-wider font-semibold",
+                      parsed ? "text-accent-green" : "text-accent-amber",
+                    )}
+                  >
+                    {parsed ?? "Format: 8'30"}
+                  </span>
+                )}
+              </div>
+              <input
+                type="text"
+                inputMode="numeric"
+                value={raw}
+                placeholder={f.placeholder}
+                onChange={(e) => set(f.key, e.target.value)}
+                className="w-full bg-white/[0.04] border border-white/10 rounded-2xl px-4 py-2.5 text-[15px] font-semibold text-white placeholder-text-muted outline-none focus:border-accent-purple/60 transition-colors tabular-nums"
+              />
+              <p className="mt-1 text-[11px] text-text-muted leading-snug">
+                {f.description}
+              </p>
+            </div>
+          );
+        })}
+      </div>
+
+      <p className="mt-4 text-center text-[12px] text-text-muted">
+        Format: <span className="font-semibold text-white">7'30</span> (minutes
+        per mile)
+      </p>
+    </div>
+  );
+}
 
 function InjuriesStep({
   value,

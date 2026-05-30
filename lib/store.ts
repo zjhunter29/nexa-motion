@@ -77,6 +77,7 @@ const defaultProfile: UserProfile = {
   onboarded: false,
   hasGeneratedPlan: false,
   planGeneratedAt: undefined,
+  knownPaces: {},
 };
 
 const PERSIST_VERSION = 2;
@@ -245,6 +246,7 @@ export const useNexaStore = create<NexaState>()(
             profile.planGeneratedAt = undefined;
             profile.activityLevel = profile.activityLevel ?? "moderate";
             if (!("injuryHistory" in profile)) profile.injuryHistory = [];
+            if (!("knownPaces" in profile)) profile.knownPaces = {};
             obj.profile = profile;
           }
           return obj as never;

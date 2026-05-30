@@ -9,6 +9,11 @@ import type {
   WorkoutType,
 } from "./types";
 import { dateKey } from "./utils";
+import {
+  distanceMultiplier,
+  recoveryPaceString,
+  resolvePace,
+} from "./physiology";
 
 /**
  * Generate the next two weeks of personalized workouts based on the user's
@@ -24,12 +29,15 @@ export function generatePlan(profile: UserProfile): Workout[] {
     ? profile.trainingDays
     : [1, 3, 5];
 
-  const baseMiles = startingLongRunMiles(profile);
-  const easyMiles = startingEasyMiles(profile);
-  const easyPace = paceForLevel(profile.fitnessLevel, "easy");
-  const longPace = paceForLevel(profile.fitnessLevel, "long");
-  const tempoPace = paceForLevel(profile.fitnessLevel, "tempo");
-  const intervalPace = paceForLevel(profile.fitnessLevel, "interval");
+  // Physiology adjustments — age + BMI scale both pace and distance.
+  const distMult = distanceMultiplier(profile);
+
+  const baseMiles = startingLongRunMiles(profile) * distMult;
+  const easyMiles = startingEasyMiles(profile) * distMult;
+  const easyPace = resolvePace(profile, "easy");
+  const longPace = resolvePace(profile, "long");
+  const tempoPace = resolvePace(profile, "tempo");
+  const intervalPace = resolvePace(profile, "interval");
 
   const cap = avoidInjuryCap(profile);
 
@@ -167,7 +175,7 @@ export function generatePlan(profile: UserProfile): Workout[] {
             main: {
               label: "Recovery",
               distanceMiles: limit(1.5, cap.easy),
-              pace: recoveryPace(profile.fitnessLevel),
+              pace: recoveryPaceString(profile),
               targetHr: [130, 145],
               trainingFocus: "Active recovery",
             },
@@ -260,27 +268,8 @@ function adjustForActivity(base: number, level: ActivityLevel): number {
   return Math.round(base * mod * 10) / 10;
 }
 
-// ─── pace tables ──────────────────────────────────────────────────────────
-
-function paceForLevel(
-  level: FitnessLevel,
-  kind: "easy" | "long" | "tempo" | "interval",
-): string {
-  const table: Record<FitnessLevel, Record<typeof kind, string>> = {
-    beginner: { easy: "11'00", long: "11'30", tempo: "9'30", interval: "8'30" },
-    intermediate: { easy: "9'00", long: "9'30", tempo: "7'45", interval: "6'45" },
-    advanced: { easy: "8'00", long: "8'20", tempo: "6'45", interval: "5'45" },
-    elite: { easy: "7'00", long: "7'15", tempo: "5'45", interval: "4'50" },
-  };
-  return table[level][kind];
-}
-
-function recoveryPace(level: FitnessLevel): string {
-  return paceForLevel(level, "easy").replace(/'(\d{2})/, (_m, s) => {
-    const next = Math.min(59, parseInt(s, 10) + 30);
-    return `'${next.toString().padStart(2, "0")}`;
-  });
-}
+// Pace tables now live in lib/physiology.ts and run through
+// resolvePace() so they age/BMI-adjust and honor user overrides.
 
 function estimateMinPerMile(pace: string): number {
   // pace is "M'SS" — 8'30 means 8:30 per mile

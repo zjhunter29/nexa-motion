@@ -65,6 +65,20 @@ export type RunningGoal = "5k" | "10k" | "half" | "full" | "ultra" | "general";
 export type ActivityLevel = "sedentary" | "light" | "moderate" | "active" | "very_active";
 export type Units = "imperial" | "metric";
 
+/**
+ * Pace strings the user has dialed in for themselves, in M'SS per mile
+ * (e.g. "7'45"). All fields optional — most people don't know theirs and
+ * leave them blank, in which case the plan generator falls back to
+ * level + physiology defaults.
+ */
+export interface KnownPaces {
+  easy?: string;
+  long?: string;
+  tempo?: string;
+  threshold?: string;
+  interval?: string;
+}
+
 export interface UserProfile {
   name: string;
   avatarColor: string;
@@ -88,6 +102,8 @@ export interface UserProfile {
   hasGeneratedPlan: boolean;
   /** Unix ms — when the most-recent plan was generated. */
   planGeneratedAt?: number;
+  /** Optional user-supplied paces. Override the auto-computed defaults. */
+  knownPaces?: KnownPaces;
 }
 
 export interface Achievement {

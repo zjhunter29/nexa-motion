@@ -20,6 +20,7 @@ import {
   X,
   Check,
   Trash2,
+  Timer,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNexaStore } from "@/lib/store";
@@ -42,9 +43,11 @@ import type {
   ActivityLevel,
   Experience,
   FitnessLevel,
+  KnownPaces,
   RunningGoal,
   UserProfile,
 } from "@/lib/types";
+import { PACE_FIELDS, parsePaceInput } from "@/lib/physiology";
 
 interface Row {
   icon: typeof User;
@@ -227,6 +230,13 @@ export function SettingsView() {
               : "None",
           accent: "#EF4444",
           onClick: () => setEditor({ kind: "injuries" }),
+        },
+        {
+          icon: Timer,
+          label: "Known paces",
+          value: knownPacesSummary(profile.knownPaces),
+          accent: "#06B6D4",
+          onClick: () => setEditor({ kind: "paces" }),
         },
       ],
     },
@@ -508,7 +518,8 @@ type EditorField =
   | { kind: "goal" }
   | { kind: "activityLevel" }
   | { kind: "trainingDays" }
-  | { kind: "injuries" };
+  | { kind: "injuries" }
+  | { kind: "paces" };
 
 function EditorSheet({
   field,
@@ -568,6 +579,7 @@ function fieldLabel(kind: EditorField["kind"]): string {
     activityLevel: "Daily activity level",
     trainingDays: "Training days",
     injuries: "Injury history",
+    paces: "Known paces",
   }[kind];
 }
 
@@ -713,6 +725,13 @@ function EditorBody({
         />
       )}
 
+      {field.kind === "paces" && (
+        <PacesPicker
+          value={(draft.paceInputs as Record<string, string>) ?? {}}
+          onChange={(paceInputs) => setDraft({ paceInputs })}
+        />
+      )}
+
       <motion.button
         whileTap={{ scale: 0.97 }}
         onClick={save}
@@ -757,6 +776,13 @@ function initialDraft(
       return { trainingDays: [...p.trainingDays] };
     case "injuries":
       return { injuryHistory: [...p.injuryHistory] };
+    case "paces": {
+      const inputs: Record<string, string> = {};
+      for (const f of PACE_FIELDS) {
+        inputs[f.key] = p.knownPaces?.[f.key] ?? "";
+      }
+      return { paceInputs: inputs };
+    }
   }
 }
 
@@ -792,6 +818,15 @@ function buildPatch(
       return { trainingDays: draft.trainingDays as number[] };
     case "injuries":
       return { injuryHistory: draft.injuryHistory as string[] };
+    case "paces": {
+      const inputs = (draft.paceInputs ?? {}) as Record<string, string>;
+      const knownPaces: KnownPaces = {};
+      for (const f of PACE_FIELDS) {
+        const parsed = parsePaceInput(inputs[f.key] ?? "");
+        if (parsed) knownPaces[f.key] = parsed;
+      }
+      return { knownPaces };
+    }
   }
 }
 
@@ -952,4 +987,67 @@ function InjuriesPicker({
       })}
     </div>
   );
+}
+
+function PacesPicker({
+  value,
+  onChange,
+}: {
+  value: Record<string, string>;
+  onChange: (v: Record<string, string>) => void;
+}) {
+  function set(key: string, v: string) {
+    onChange({ ...value, [key]: v });
+  }
+
+  return (
+    <div className="space-y-3 max-h-[55vh] overflow-y-auto no-scrollbar pr-1">
+      <p className="text-[12px] text-text-secondary leading-relaxed">
+        All optional. Anything you fill in overrides what we'd otherwise infer
+        from your age, weight, and fitness level. Format:{" "}
+        <span className="font-semibold text-white">7'30</span>.
+      </p>
+      {PACE_FIELDS.map((f) => {
+        const raw = value[f.key] ?? "";
+        const parsed = parsePaceInput(raw);
+        const hasInput = raw.trim().length > 0;
+        return (
+          <div key={f.key}>
+            <div className="flex items-baseline justify-between mb-1.5">
+              <span className="text-[13px] font-semibold text-white">
+                {f.label}
+              </span>
+              {hasInput && (
+                <span
+                  className={cn(
+                    "text-[10px] uppercase tracking-wider font-semibold",
+                    parsed ? "text-accent-green" : "text-accent-amber",
+                  )}
+                >
+                  {parsed ?? "Format: 8'30"}
+                </span>
+              )}
+            </div>
+            <input
+              type="text"
+              inputMode="numeric"
+              value={raw}
+              placeholder={f.placeholder}
+              onChange={(e) => set(f.key, e.target.value)}
+              className="w-full bg-white/[0.04] border border-white/10 rounded-2xl px-4 py-2.5 text-[15px] font-semibold text-white placeholder-text-muted outline-none focus:border-accent-purple/60 transition-colors tabular-nums"
+            />
+            <p className="mt-1 text-[11px] text-text-muted leading-snug">
+              {f.description}
+            </p>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function knownPacesSummary(p: KnownPaces | undefined): string {
+  const count = p ? Object.values(p).filter((v) => !!v && v.length > 0).length : 0;
+  if (count === 0) return "Auto";
+  return `${count} set`;
 }
